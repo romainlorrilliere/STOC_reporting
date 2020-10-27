@@ -206,7 +206,7 @@ mainSTOCreporting <- function(file="Extrait.txt",fileDataClean="data.csv",fileDa
 
             h1 <- Sys.time()
 
-            for(i in 1:2) {
+            for(i in 1:nbsite) {
                 ss <- as.character(dsite2$site[i])
 
                 catlog(c("\n",i,"/",nbsite," site:",ss,"\n"),fileLog)
