@@ -57,11 +57,11 @@ mainSTOCreporting <- function(file="Extrait.txt",fileDataClean="data.csv",fileDa
 
     ## ##############################
     ## DEBUG declaration parametres
-## file="test2.csv";fileDataClean="data.csv";fileData3sessions = "data3session.csv" #####
-##    lastYear=NULL;importationData="brut";all=TRUE;local=TRUE;site=NULL #####
-##    seuilAbondanceAnneeAll=30;seuilAbondanceAnneeSite=10 #####
-##    seuilAvorteDuree= 4;seuilAvorteEvenement=5;seuilExclusionDelai = 10;dateRefDefaut =c(138,165,188)
-##    selectedSessionPlot=TRUE;abondanceRelative=TRUE;variationAbondance=TRUE;productivite=TRUE;conditionCoporelle=TRUE;retour=TRUE #####
+ file="Extrait.txt";fileDataClean="data.csv";fileData3sessions = "data3session.csv" #####
+    lastYear=NULL;importationData="brut";all=TRUE;local=TRUE;site=NULL #####
+    seuilAbondanceAnneeAll=30;seuilAbondanceAnneeSite=10 #####
+    seuilAvorteDuree= 4;seuilAvorteEvenement=5;seuilExclusionDelai = 10;dateRefDefaut =c(138,165,188)
+    selectedSessionPlot=TRUE;abondanceRelative=TRUE;variationAbondance=TRUE;productivite=TRUE;conditionCoporelle=TRUE;retour=TRUE #####
 ##
     ## #######################
 
