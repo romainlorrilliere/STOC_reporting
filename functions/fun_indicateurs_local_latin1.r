@@ -192,6 +192,7 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
         gg <- ggplot()
         gg <- gg + geom_sf(data = world1,fill="white", colour="#7f7f7f", size=0.2)+ geom_sf(data = france,fill="white", colour="#7f7f7f", size=0.5)
         gg <- gg + coord_sf(xlim=c(-5,9),ylim=c(41.5,52))
+
         gg <- gg + geom_point(data = coordAll2,aes(LON,LAT),shape=1,size=1,colour="black")
         gg <- gg + geom_point(data = dcoord.s,aes(LON,LAT), colour="red",size=4)
         gg <- gg + geom_point(data = coordAllh, aes(LON,LAT,colour=DUREE),size=2,shape=19)
