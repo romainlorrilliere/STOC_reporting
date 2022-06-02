@@ -16,7 +16,7 @@ library(p,character.only=TRUE)
 ##'
 ##' .. maybe not required ..
 ##' @title correctCaracteres
-##' @param v: vector that contains french multi-octet characters
+##' @param v vector that contains french multi-octet characters
 ##' @return v modifié
 ##' @author Romain Lorrilliere
 correctCaracteres <- function(v)
