@@ -46,7 +46,7 @@ run.rmd <- function(file.rmd="functions/rmd_stoc_reporting_utf8.rmd",rep.out="ou
      if(!(rep.out) %in% dir()) {
          cat("\n Le repertoire de sortie:",rep.out,"est manquant\n")
          dir.create(rep.out,showWarnings=FALSE)
-         cat("\n Répertoire créer !!\n")
+         cat("\n RÃ©pertoire crÃ©Ã© !!\n")
      }
 
       rmarkdown::render(file.rmd,output_file=file.out,output_dir=rep.out,output_format = format,clean=render.clean,encoding="utf-8",params = list(set_rep = rep, set_file_data = file.data,set_fileLog = fileLog,set_site = id_station, set_year = year, set_save_fig = save.fig))

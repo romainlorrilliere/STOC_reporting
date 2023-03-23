@@ -5,7 +5,7 @@ ip <- installed.packages()[,1]
 
 for(p in vecPackage){
     if (!(p %in% ip))
-        install.packages(pkgs=p,repos = "http://cran.univ-paris1.fr/",dependencies=TRUE)
+        install.packages(pkgs=p,repos = "https://cran.biotools.fr/",dependencies=TRUE)
 library(p,character.only=TRUE)
 }
 
@@ -16,29 +16,29 @@ library(p,character.only=TRUE)
 ##'
 ##' .. maybe not required ..
 ##' @title correctCaracteres
-##' @param v vector that contains french multi-octet characters
-##' @return v modifié
+##' @param v: vector that contains french multi-octet characters
+##' @return v modifi?
 ##' @author Romain Lorrilliere
-correctCaracteres <- function(v)
-{
-    v <-  as.character(v)
-                                        # translation table to transform french multi-octet characters to simple characters
-    translationTable <- data.frame(code = c("\xe7","\xe9","\xb0","°","\U3e61653c","\U3e39653c","\xea","\xe8","\U3e39653c"),trad=c("c","e","","","e","e","e","e","e"))
-    translationTable$code <- as.character(translationTable$code)
-    translationTable$trad <- as.character(translationTable$trad)
-    for (i in 1:nrow(translationTable)) vv <- sub(tranOslationTable$code[i],translationTable$trad[i],vv)
-    return(v)
-}
+# correctCaracteres <- function(v)
+# {
+#     v <-  as.character(v)
+#                                         # translation table to transform french multi-octet characters to simple characters
+#     translationTable <- data.frame(code = c("\xe7","\xe9","\xb0","?","\U3e61653c","\U3e39653c","\xea","\xe8","\U3e39653c"),trad=c("c","e","","","e","e","e","e","e"))
+#     translationTable$code <- as.character(translationTable$code)
+#     translationTable$trad <- as.character(translationTable$trad)
+#     for (i in 1:nrow(translationTable)) vv <- sub(tranOslationTable$code[i],translationTable$trad[i],vv)
+#     return(v)
+# }
 
 
 
-##' .. recherche de ligne dupliquées ..
+##' .. recherche de ligne dupliqu?es ..
 ##'
 ##' ..  ..
 ##' @title duplicationScanning
 ##' @param d: data.frame
-##' @param focus_field: vecteur des champs à tester
-##' @return les lignes dupliquée
+##' @param focus_field: vecteur des champs ? tester
+##' @return les lignes dupliqu?e
 ##' @author Romain Lorrilliere
 duplicationScanning <-  function(d,focus_field=c("ID_PROG","ACTION","BAGUE","SP","DATE","HEURE","NF","AGE","SEXE"))
 {
@@ -59,7 +59,7 @@ duplicationScanning <-  function(d,focus_field=c("ID_PROG","ACTION","BAGUE","SP"
 ##'
 ##' .. content for \details{} ..
 ##' @title catlog
-##' @param txt : CHAR chaine de caractère à ecrire
+##' @param txt : CHAR chaine de caract?re ? ecrire
 ##' @param fileLog : CHAR nom du fichier
 ##' @return
 ##' @author Romain Lorrilliere
@@ -71,12 +71,12 @@ catlog <- function(txt,fileLog) {
 
 
 
-##' recherche les stations de baguage ayant fait une mise à jour de leur données
+##' recherche les stations de baguage ayant fait une mise ? jour de leur donn?es
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
 ##' @title stationMAJ
-##' @param d DATAFRAME les données de baguages
+##' @param d DATAFRAME les donn?es de baguages
 ##' @param fileLog
 ##' @return vSite: CHAR[] des noms des stations qui ont des nouvelles donnees
 ##' @author Romain Lorrilliere
@@ -242,22 +242,22 @@ save <- function() {
 
                                       # Estimdatefin() :void
                                         # -----------------------
-                                        # estime et affiche la duré de simulation restante
+                                        # estime et affiche la dur? de simulation restante
                                         # et la date et l'heure de la fin de simulation
                                         # utilise dans un process BOUCLE
 
-                                        # + h1: {DATE} date de début de simulation
-                                        # + repTot : {INT} nombre de répétitions total
-                                        # + repNow : {INT} nombre de répétitions effectuées
+                                        # + h1: {DATE} date de d?but de simulation
+                                        # + repTot : {INT} nombre de r?p?titions total
+                                        # + repNow : {INT} nombre de r?p?titions effectu?es
 
 estimDateFin <- function(h1,repTot,repNow){
                                         # h2 {DATE} date et heure de l'instant
   h2 <- Sys.time()
-                                        #  diffSec {DIFFTIME} temps écoulé entre h1 et h2 en sec
+                                        #  diffSec {DIFFTIME} temps ?coul? entre h1 et h2 en sec
   diffSec <- difftime(h2,h1,units="secs")
                                         # timeByStep {DIFFTIME} temps par step
   timeByStep <- diffSec / repNow
-                                        # timeToEnd {DIFFTIME} estimation duré simulation
+                                        # timeToEnd {DIFFTIME} estimation dur? simulation
   timeToEnd <- (repTot - repNow) * timeByStep
                                         # dateEnd {DATE} estimation date de fin
   dateEnd <- format(Sys.time()+ as.numeric(timeToEnd,units="secs") ,format="%d/%m/%y %H:%M'%S")

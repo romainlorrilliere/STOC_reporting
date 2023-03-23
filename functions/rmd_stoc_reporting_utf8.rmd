@@ -1,22 +1,27 @@
 ---
-author: Romain Lorrilliere\thanks{\href{mailto:romain.lorrilliere@mnhn.fr}{\textit{romain.lorrilliere@mnhn.fr}}}, Pierre-Yves Henry\thanks{\href{mailto:pierre-yves.henry@mnhn.fr}{\textit{pierre-yves.henry@mnhn.fr}}} & le CRBPO\thanks{Centre de Recherches sur la Biologie des Populations d'Oiseaux\newline Museum National d'Histoire Naturelle \newline 43 rue Buffon - Bâtiment 135, CP 135,75005 Paris \newline \url{https://crbpo.mnhn.fr/}}
-date: "`r format(Sys.time(), '%d/%m/%Y')`"
 pdf_document:
-    toc: false
-    toc_depth: 2
-    fig_caption: true
-params: 
-   set_rep: "C:/git/STOC_reporting/"
-   set_file_data: "data_DB/data3session.csv"
-   set_fileLog: NULL
-   set_site: "204"
-   set_year: 2015
-   set_save_fig: FALSE 
+  toc: no
+  toc_depth: 2
+  fig_caption: yes
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+author: "Romain Lorrilliere\\thanks{\\href{mailto:romain.lorrilliere@mnhn.fr}{\\textit{romain.lorrilliere@mnhn.fr}}},
+  & le CRBPO\\thanks{Centre de Recherches sur la Biologie des Populations d'Oiseaux\\newline
+  Museum National d'Histoire Naturelle \\newline 43 rue Buffon - Bâtiment 135, CP
+  Pierre-Yves Henry\\thanks{\\href{mailto:pierre-yves.henry@mnhn.fr}{\\textit{pierre-yves.henry@mnhn.fr}}}
+  135,75005 Paris \\newline \\url{https://crbpo.mnhn.fr/}}"
+params:
+  set_rep: "C:/git/STOC_reporting-master/"
+  set_file_data: data_DB/data3session.csv
+  set_fileLog: null
+  set_site: '7'
+  set_year: 2015
+  set_save_fig: no
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 
-knitr::opts_chunk$set(echo =FALSE, eval=TRUE, message = FALSE, warning = FALSE,cache=FALSE)
+knitr::opts_chunk$set(echo =FALSE, eval=TRUE, message = FALSE, warning = FALSE,cache=FALSE,comment = FALSE,error = FALSE)
 
 ```
 
@@ -27,7 +32,7 @@ rep <- params$set_rep
 file_data <- params$set_file_data
 fileLog <- params$set_fileLog
 site <- params$set_site
-year <- params$set_year
+year <- params$set_year -1
 save.fig <- params$set_save_fig
 
 ```
@@ -38,7 +43,7 @@ save.fig <- params$set_save_fig
 ```{r changeRep}
 
 knitr::opts_knit$set(root.dir = rep)
-setwd("..")
+#setwd("..")
 
 ```
 
@@ -47,6 +52,7 @@ setwd("..")
 file_source <- paste0("functions/fun_indicateurs_local_latin1.r")
 source(file_source)
 library(stringr)
+library(kableExtra)
 ```
 
 
@@ -58,14 +64,30 @@ d <-  read.table(file_full,sep="\t",dec=".",stringsAsFactor=FALSE,header=TRUE,en
 d <- d %>% mutate_if(is.character, Encoding_utf8)
 
 
-#d <- subset(d,NEW.ID_PROG == site)
-hab <- d[1,"HABITAT"]
+### verifier la selection des données pour le site !!!!! 
 
+ds <- subset(d,NEW.ID_PROG == site)
+
+hab <- ds[1,"HABITAT"]
+reg <- ds[1,"BIOGEOREF"]
 hab_txt <- tolower(hab)
+reg<-tolower(reg)
+ 
+ 
+ if(reg=="national"){
+   hab_txt <- paste(hab," national")
+   reg_txt<-reg
+ }
+ if(reg!="national"){
+   hab_txt <- paste(hab," de la region '",reg,"'")
+   reg_txt<-reg
+ }
+ 
+
 
 ## ajout des nom français d'espèces
 
-dsp <- fread("library/nom_especes.csv")
+dsp <- fread("library/nom_especes.csv",encoding = "Latin-1")
 
 d <- left_join(d,dsp)
 
@@ -74,13 +96,24 @@ d <- left_join(d,dsp)
 
 ```{r bagueur}
 
-bagueur <- sort(unique(subset(d,NEW.ID_PROG == site)$BAGUEUR))
+bagueur <- sort(unique(subset(d,NEW.ID_PROG == site & BAGUEUR != "")$BAGUEUR))
+bg <- sort(setdiff(unique(subset(d,NEW.ID_PROG == site  & BAGUEUR != "")$BG),bagueur))
 nbb <- length(bagueur)
 prenom <- word(bagueur,2,sep=", ")
 nom <- str_to_title(word(bagueur,1,sep=", "))
 bagueur <- paste(paste(prenom,nom),collapse=", ")
 
-bagueur_r <- paste0("Bagueur",ifelse(nbb>1,"s","")," responsable",ifelse(nbb>1,"s","")," de la station ",paste(bagueur,collapse=", "))
+if(length(bg)>0) {
+  prenom_bg <- word(bg,2,sep=", ")
+  nom_bg <- str_to_title(word(bg,1,sep=", "))
+  bg <- paste(paste(prenom_bg,nom_bg),collapse=", ")
+  bg_r <- paste0("\\newline avec la participation de ",paste(bg,collapse=", "))
+} else {
+    bg_r <- ""
+  }
+bagueur_r <- paste0("Bagueur",ifelse(nbb>1,"s","")," responsable",ifelse(nbb>1,"s","")," de la station ",paste(bagueur,collapse=", "),bg_r)
+
+
 
 ```
 
@@ -88,8 +121,8 @@ bagueur_r <- paste0("Bagueur",ifelse(nbb>1,"s","")," responsable",ifelse(nbb>1,"
 
 ```{r title}
 
-title_r <- paste0("\\vspace{5cm} \\Large Indicateurs de fonctionnement des populations d'oiseaux communs\\newline issus du Suivi Temporel des Oiseaux Communs par Capture (STOC-Capture)\\newline Infographie actualisée pour la station ",site," contenant les données du printemps ",year)
-subtitle_r <-  paste0("\\vspace{0.5cm}  \\large ",bagueur_r," \\vspace{1cm}")#\\normalsize ",bagueur_r,"\\vspace{1cm}")
+title_r <- paste0(" \\Large Indicateurs de fonctionnement des populations d'oiseaux communs\\newline issus du Suivi Temporel des Oiseaux Communs par Capture (STOC-Capture)\\newline Infographie actualisée pour la station ",site," contenant les données du printemps ",year)
+subtitle_r <-  paste0(" \\large ",bagueur_r," \\vspace{1cm}")#\\normalsize ",bagueur_r,"\\vspace{1cm}")
 
 ```
 
@@ -106,6 +139,15 @@ subtitle: `r subtitle_r`
 
 \tableofcontents
 \listoffigures 
+
+
+\vspace{2cm}
+
+_Remerciements :_ 
+
+On remercie toutes les personnes qui ont participé au maintien et à l'amélioration du script de production de ce rapport, Adenot Nathalie, Auvray Coraline, Benboudjema Sophie, Blandin Gwenalan, Della Signora Carla, Fort Romane, Magliaraschi Ninon.
+ 
+ 
 \clearpage
 
 \newpage
@@ -126,15 +168,15 @@ le protocole STOC-Capture basé sur un échantillonnage standardisé,
 répété à l'identique d'année en année aux mêmes endroits, a pour
 objectif de suivre les changements de fonctionnement des populations
 d'oiseaux communs au cours du temps, et entre les sites
-suivis.Localement, le STOC Capture peut d'ailleurs également
+suivis. Localement, le STOC Capture peut d'ailleurs également
 documenter le fonctionnement d'espèces d'oiseaux peu communes. 
 
-Le présent rapport infographique a pour but de caractériser au travers
+Le présent rapport infographique a pour but de caractériser à travers
 quelques indicateurs graphiques issus du STOC-Capture les variations
 temporelles d'état et de fonctionnement des populations d'oiseaux
-communs en contrastant la station d'intérêt faisant
+communs, en contrastant la station d'intérêt faisant
 l'objet du rapport (la station `r site`)  avec  un ensemble de
-stations servant de réfèrence.
+stations servant de référence.
 
 Ces indicateurs ont vocation à documenter les variations, entre années
 et groupes de stations, de la taille des populations, de la production
@@ -169,17 +211,36 @@ comparées aux autres stations du même groupe:
 - Rozo : Stations réalisant le protocole spécifique STOC-ROZO
 
 
-Ainsi la station `r site` de type `r hab_txt` est comparée au sous-ensemble des stations
-STOC-Capture du type `r hab_txt` et qui ont été en activité en même
-temps (figure __\ref{fig:carte}__). 
+```{r region}
+
+if(reg != "national") {
+  txt_reg <- paste0("Dans une volonté de comparer des stations similaires,  nous avons découpé la France en différentes régions, selon les régions biogéographiques utilisées par l’Agence européenne pour l’environnement (Plus d’informations dans ce document : http://www.eea.europa.eu/data-and-maps/data/biogeographical-regions-europe-
+2005/methodology-description-pdf-format/methodology-description-pdf-format/at_download/file).\n
+Il est à noter que, par manque de données, les stations STOC-rozo et aquatiques sont comparées entre elles et que les stations alpines (d'altitude supérieure à 1200m), méditerranéeennes et continentales sont comparées à toutes les stations terrestres de France.\n
+La station ",site," terrestre est dans la région ",reg_txt,", elle sera comparée à l'ensemble des stations ",reg_txt,"s terrestres")
+} else {
+  txt_reg <- paste0("La station ",site," de type ",hab_txt," est comparée au sous-ensemble des stations
+STOC-Capture du type ", hab_txt," et qui ont été en activité en même
+temps")
+}
 
 
 
-```{r fig.carte, eval=TRUE,fig.align = 'center', out.width='100%',fig.cap=paste("\\label{fig:carte}Localisation de la stations",site,"en rouge et des stations de même type en dégradé de bleu présentant le nombre d'année de données disponibles pour la comparaison. Les stations notées par un petit cercle vide sont les stations qui ne sont pas utilisables pour caractériser la référence nationale"),fig.scap="La localisation de la station"} 
+```
+
+
+`r txt_reg` (figure __\ref{fig:carte}__).
+
+
+
+
+
+
+```{r fig.carte, eval=TRUE,fig.align = 'center', out.width='100%',fig.cap=paste("\\label{fig:carte}Localisation de la station",site," en rouge et des stations de même type avec lequelles elle est comparée en dégradé de bleu présentant le nombre d'années de données disponibles pour la comparaison. Les stations notées par un petit cercle vide sont les stations qui ne sont pas utilisables pour caractériser la référence.",ifelse(reg!="national",paste0("La région ",reg," est représentée par la zone orangée"),"")),fig.scap="La localisation de la station"}
 
 carteStation(site=site,d=d,add_local=FALSE,fileLog=fileLog,print.fig=TRUE,save.fig=save.fig,add_title=FALSE)
- 
 ```
+
 
 
 ## La standardisation
@@ -233,7 +294,7 @@ sessions nous ne retenons que les sessions les plus proches des dates
 des 3 sessions les plus fréquentes à l'échelle nationale. Cette
 recherche tient compte du décalage qui est demandé aux stations de
 montagne et de la région méditerranéenne. 
-- Les dates des 3 sessions doivent, année après année, rester, le plus
+- Les dates des 3 sessions doivent, année après année, rester le plus
   stable possible au sein de chaque station. Seules les sessions dont 
   les dates sont éloignées de moins de 16 jours d'une des 3 dates de
   référence (calculées sur l'ensemble des dates des sessions) sont
@@ -248,7 +309,7 @@ cas particuliers.
  
  
 
-```{r fig.ses, eval=TRUE,fig.align = "center", out.width="75%",fig.cap=paste("\\label{fig:ses}Les dates des 3 sessions selectionées pour la station ",site,". Les lignes pointillées représentent les dates de références pour la station calculer à partir des dates locales de session. Les points de couleur (bleu pour la session 1, violet pour la session 2 et rouge pour la session 3) indiquent les sessions concervées pour l'analyse des indicateurs. En couleur pale est indiqué la distribution des dates des sessions à l'échelle nationale (en gras la médiane, en trait fin les 50\\% autour de la médiane et en ombré la zone des 95\\%",sep=""),fig.scap="Les sessions"}
+```{r fig.ses, eval=TRUE,fig.align = "center", out.width="75%",fig.cap=paste("\\label{fig:ses}Les dates des 3 sessions selectionées pour la station ",site,". Les lignes pointillées représentent les dates de référence pour la station calculées à partir des dates locales de session. Les points de couleur (bleu pour la session 1, violet pour la session 2 et rouge pour la session 3) indiquent les sessions concervées pour l'analyse des indicateurs. En couleur pale est indiquée la distribution des dates des sessions à l'échelle de référence (en gras la médiane, en trait fin les 50\\% autour de la médiane et en ombré la zone des 95\\%",sep=""),fig.scap="Les sessions"}
 
 selectedSession.site(site=site,d=d,fileLog=fileLog,print.fig=TRUE,save.fig=save.fig,add_title=FALSE)
  
@@ -261,27 +322,27 @@ Le dernier niveau de standardisation considère la longueur de filets
 utilisée. Celle-ci étant variable entre les différentes stations, le
 nombre de captures a été ramené à une longueur théorique de 120 mètres
 de filets. Pour résumer, par printemps, nous retenons 3 sessions, au cours
-desquelles calcule les valeurs pour 120 mètres de filet déployés sur une matinée.
+desquelles on calcule les valeurs pour 120 mètres de filet déployés sur une matinée.
 
 Cependant il arrive que la longueur de filet utilisé ne soit pas
 renseigné dans la base de données. C'est principalement le cas pour
 les données historique. 
 
-Afin de pouvoir standardisé ces données, nous estimons la longueur de
-filets utilisé à partir de numéros de filet présent sur la station en
-considérant que tous les filets mesure 12 mètres (ce que recommande le
+Afin de pouvoir standardiser ces données, nous estimons la longueur de
+filets utilisée à partir de numéros de filet présents sur la station en
+considérant que tous les filets mesurent 12 mètres (ce que recommande le
 protocole). 
 
 Les longueurs de filets utilisées pour standardiser les captures sont
-noté dans la table __\ref{tab:sf}__.
+notées dans la table __\ref{tab:fs}__.
 
 
 ```{r tab.fs, eval= TRUE, result ='asis'}
 
-d_session <- unique(subset(d,NEW.ID_PROG == site,select=c("YEAR","SESSION","DATE","FS","FS.OUTPUT")))
+d_session <- unique(subset(d,NEW.ID_PROG == site,select=c("YEAR","SESSION","DATE","FS.DEDUIT","FS_METHODE")))
 d_session <- d_session[order(d_session$YEAR,d_session$SESSION),]
-d_session$FS.OUTPUT <- ifelse(d_session$FS.OUTPUT == "FS","renseigné","déduit")
-colnames(d_session) <- c("Année","Session","Date","Longueur de filets (m)","Renseigné/Déduit")
+##d_session$FS.OUTPUT <- ifelse(d_session$FS.OUTPUT == "FS","renseigné","déduit")
+colnames(d_session) <- c("Année","Session","Date","Longueur de filets (m)","Méthode")
 
 
 kable(d_session,"latex", caption=paste0("Les longueurs de filets lors des session de capture sur le site ",site,"."),label="fs",row.names=FALSE,booktabs=TRUE)
@@ -295,13 +356,13 @@ kable(d_session,"latex", caption=paste0("Les longueurs de filets lors des sessio
 
 
 ## Condition de calcul des indicateurs
-Les seuils conditionnant le calcul des indicateurs ont été établi
+Les seuils conditionnant le calcul des indicateurs ont été établis
 comme suit :
 
 
 Indicateur  | Seuils appliqués
 ------------- | -------------
-Indice d'abondance | Au moins 5 individus adultes de l'espèce capturées \ sur l'ensemble des années
+Indice d'abondance | Au moins 5 individus adultes de l'espèce capturés \ sur l'ensemble des années
 Indice de productivité | Nombre médian par station d'individus \ supérieur ou égal à 5 sur l'ensemble des \ années de suivi 
 Indice de condition corporelle | Nombre médian par station d'individus \ supérieur ou égal à 10 sur l'ensemble des \ années de suivi 
 Indice de taux de retour | Nombre médian par station d'individus \ supérieur ou égal à 10  sur l'ensemble des années \  de suivi
@@ -316,7 +377,7 @@ Les figures de variation des indicateurs sont toutes construites sur
 le même modèle.
 
 Ainsi les valeurs des indicateurs pour la station sont représentées en
-orange et se superposent aux valeurs de références nationales en
+orange et se superposent aux valeurs de référence en
 bleu.
 
 
@@ -332,7 +393,7 @@ indicateurs (figure __\ref{fig:ref}__).
   valeurs de l'indicateur  autour de la médiane.
 - L'intervalle des 95\% représente l'intervalle qui contient 95\% des
   valeurs de l'indicateur  autour de la médiane.
-- Au-delà des 95\% il reste donc 5\% des données que l'on considére
+- Au-delà des 95\% il reste donc 5\% des données que l'on considère
   comme les valeurs extrêmes et que nous ne représentons pas pour la
   référence nationale.
   
@@ -340,7 +401,7 @@ indicateurs (figure __\ref{fig:ref}__).
   
 Pour chaque indicateur nous proposons dans un premier temps un indice
 pour l'ensemble de la communauté d'espèce, regroupant toutes les
-espèces quelle que soit leurs abondances. Cette analyse à l'échelle de
+espèces quelle que soit leur abondance. Cette analyse à l'échelle de
 la communauté est pertinente biologiquement, mais aussi
 statistiquement car plus de la moitié des espèces sont capturées en
 trop faible nombre pour permettre de caractériser leur fonctionnement
@@ -349,18 +410,20 @@ spécifique.
 Dans un second temps nous proposons les indices par espèce,
 calculés pour les espèces pour lesquelles le nombre de données est
 considéré suffisant (cf. seuils évoqués plus haut). Ce second indicateur permet une
-analyse l'échelle de chaque espèce. Il a pour but d'identifier, lorsque c'est le
-cas, la ou les espéce(s) responsable(s) de ce que l'on observe au
+analyse à l'échelle de chaque espèce. Il a pour but d'identifier, lorsque c'est le
+cas, la où les espèce(s) responsable(s) de ce que l'on observe au
 niveau de la communauté d'espèce. 
 
 
 \begin{figure}
-\begin{center} 
- \includegraphics[width=0.75\linewidth]{c:/git/STOC_reporting/library/fig_ref}
+\begin{center}
+\includegraphics[width=0.75\linewidth]{C:/git/STOC_reporting-master/library/fig_ref.png}
 \end{center}
 \caption[Aide à l'interprétation des figures]{\label{fig:ref}Aide à l'interprétation
-des figures des indicateurs au regard des variations temporelles nationales}
+ des figures des indicateurs au regard des variations temporelles nationales}
 \end{figure}
+
+
 
 
 \clearpage
@@ -371,15 +434,15 @@ des figures des indicateurs au regard des variations temporelles nationales}
 ## La communauté échantillonée
 
 Ici nous considérons toutes les espèces capturées sur la station `r site`. La
-figure __\ref{fig:com}__ reprèsente la constitution de la
+figure __\ref{fig:com}__ représente la constitution de la
 communauté locale et leurs effectifs
 capturés. Elle montre également la distribution des captures de
-ces espéces dans les stations de même type (parmi les stations
-qui capturent l'espéce). Ainsi la figure __\ref{fig:com}__
+ces espèces dans les stations de même type (parmi les stations
+qui capturent l'espèce). Ainsi la figure __\ref{fig:com}__
 permet d'apprécier les paricularités de la station.
 
 
-```{r fig.com, eval=TRUE,fig.align = 'center', out.width='90%',fig.cap=paste("\\label{fig:com}Nombre d'adulte capturés par espèce sur la station ",site,", les points dégradés du jaune au rouge (correspondant aux années) représentent les données locales, les boîtes à moustaches bleues représentent la distribution nationale de ces captures sur les stations de type ",hab_txt," et qui capturent l'espèce. Le nombre de station qui capture l'espèce est noté entre paranthèse",sep=""),fig.scap="Les espèces capturées"}
+```{r fig.com, eval=TRUE,fig.align = 'center', out.width='90%',fig.cap=paste("\\label{fig:com}Nombre d'adulte capturés par espèce sur la station ",site,", les points dégradés du jaune au rouge (correspondant aux années) représentent les données locales, les boîtes à moustaches bleues représentent la distribution ", ifelse(reg_txt != "national", "régionale", "nationale"), "  de ces captures sur les stations de type ",hab_txt," et qui capturent l'espèce. Le nombre de stations qui capturent l'espèce est noté entre parenthèses",sep=""),fig.scap="Les espèces capturées"}
 
 d_capt_site <- speciesRelativeAbund.site(d,site=site,col_nomsp = "nom_fr",fileLog=fileLog,print.fig=TRUE,save.fig=FALSE,add_title=FALSE,return_table=TRUE)
 
@@ -395,7 +458,7 @@ d_capt_site <- speciesRelativeAbund.site(d,site=site,col_nomsp = "nom_fr",fileLo
 table_capt <- d_capt_site[,c("nom_fr","ABUNDsite_sum_ad","ABUNDsite_med_all","MIGRATION")]
 colnames(table_capt) <- c("Espèce","Adultes capturés","Médiane des captures annuelles","Migrateur")
 
-kable(table_capt,"latex", caption=paste0("Les espèces capturée sur le site ",site," et le nombre de capture utilisées pour les filtres des indicateurs."),label="com",row.names=FALSE,booktabs=TRUE)
+kable(table_capt,"latex", caption=paste0("Les espèces capturées sur le site ",site," et le nombre de capture utilisées pour les filtres des indicateurs."),label="com",row.names=FALSE,booktabs=TRUE)
 ##kable_styling(k,latex_options = "striped")
 
 
@@ -404,14 +467,14 @@ kable(table_capt,"latex", caption=paste0("Les espèces capturée sur le site ",s
 
 \clearpage
 
-## L'indice d'abondance des adultes
+## L'indice d'abondance des adultes comparé par habitat 
 Les variations locales d'abondance quantifient la
 résultante démographique (tailles de population) des effets combinés
 des variations de survie, de reproduction et de dispersion entre
 années. 
 Cet indice d'abondance est
 calculé à partir des captures d'adultes et est standardisé pour
-correspondre aux captures sur 3 sessions par 120 métres de filets.
+correspondre aux captures sur 3 sessions par 120 mètres de filets.
 
 
 
@@ -454,7 +517,7 @@ if(nrow(d_capt_site_ab) > 0 ) {
 
 ```{r text.absp}
 if(fig_sp) {
-    txt <- paste0("Pour les ",nbsp," espèces (table \\textbf{\\ref{tab:com}})  assez abondantes (plus 5 captures d'adultes) les variations d'abondance sont présentées dans les figures \\textbf{\\ref{fig:absp",sp1,"}}-\\textbf{\\ref{fig:absp",spN,"}}.\n")
+    txt <- paste0("Pour les ",nbsp," espèces (table \\textbf{\\ref{tab:com}})  assez abondantes (plus de 5 captures d'adultes) les variations d'abondance sont présentées dans les figures \\textbf{\\ref{fig:absp",sp1,"}}-\\textbf{\\ref{fig:absp",spN,"}}.\n")
 } else {
     txt <- paste0("Aucune espèce n'est assez abondante (plus de 5 captures d'adultes voir table \\textbf{\\ref{tab:com}})  pour une présentation spécifique des variations d'abondance.\n")
 }
@@ -490,7 +553,7 @@ if(fig_sp) abundanceSpeciesYear.site(d,site=site,species=vec_sp,nom_sp=sp_nom,fi
 ## L'indice de productivité
 
 L'indice de productivité correspond au nombre de jeunes produits par
-adulte. Il refléte les effets des conditions environnementales sur la
+adulte. Il reflète les effets des conditions environnementales sur la
 reproduction et la survie jusqu'à l'envol (à nombre d'adultes égaux,
 donc indépendamment des fluctuations de taille de population
 reproductrice). Il renseigne ainsi sur la variation de la qualité de
@@ -505,11 +568,11 @@ par le nombre d'adultes (capturés sur les 3 sessions) tel que :
 \end{equation}
 
 Enfin cet indice est tout d'abord calculé de façon globale pour la
-communauté en regroupant les espéces selon le typ e de migration
+communauté en regroupant les espèces selon le type de migration
 qu'elles réalisent ("_Court_" pour à courte distance, "_Long_" pour à
 longue distance, voir la figure __\ref{fig:prod}__). En effet, la
 productivité documentée étant très différente entre les migrateurs à
-longue distance (transsahariens) et les autres espéces, l'indice de
+longue distance (transsahariens) et les autres espèces, l'indice de
 productivité est calculé séparément pour ces deux groupes
 d'espèces. 
 
@@ -547,7 +610,7 @@ if(nrow(d_capt_site_prod) > 0 ) {
 
 ```{r text.prodsp}
 if(fig_sp) {
-    txt.prodsp <- paste0("Pour les ",nbsp," espèces (table \\textbf{\\ref{tab:com}}) assez abondantes (nombre médian d'individus capturés supérieur ou égal à 5) les variations des productivités sont présentées dans les figures \\textbf{\\ref{fig:prod",sp1,"}}-\\textbf{\\ref{fig:prod",spN,"}}.\n")
+    txt.prodsp <- paste0("Pour les ",nbsp," espèces (table \\textbf{\\ref{tab:com}}) assez abondantes (nombre médian d'individus capturés supérieur ou égal à 5) les variations des productivité sont présentées dans les figures \\textbf{\\ref{fig:prod",sp1,"}}-\\textbf{\\ref{fig:prod",spN,"}}.\n")
 } else {
     txt.prodsp <- paste0("Aucune espèce n'est assez abondante (nombre médian d'individus capturés supérieur ou égal à 5 voir table \\textbf{\\ref{tab:com}}) pour une présentation spécifique des variations de productivité.\n")
 }
@@ -559,7 +622,7 @@ if(fig_sp) {
 `r txt.prodsp`
 
 
-```{r fig.prod, eval=TRUE,fig.align = 'center', out.width='75%',fig.cap=paste("\\label{fig:prod}Variation de la productivité globale pour la station ",site,". En bleu, la variation nationale des quantiles de l'indicateur (médiane, 50\\% et 95\\%) pour les station de type ",hab_txt,", en rouge la variation pour la station ",site,".",sep=""),fig.scap="Variation de la productivité"}
+```{r fig.prod, eval=TRUE,fig.align = 'center', out.width='75%',fig.cap=paste("\\label{fig:prod}Variation de la productivité globale pour la station ",site,". En bleu, la variation ",ifelse(reg_txt != "national", "régionale", "nationale"), " des quantiles de l'indicateur (médiane, 50\\% et 95\\%) pour les station de type ",hab_txt,", en rouge la variation pour la station ",site,".",sep=""),fig.scap="Variation de la productivité"}
 
 productivityYear.site(d,site=site,fileLog=fileLog,print.fig=TRUE,save.fig=FALSE,add_title=FALSE)
 
@@ -587,7 +650,7 @@ if(fig_sp)
 
 En période de reproduction, la condition corporelle des individus est principalement influencée par les conditions météorologiques et la disponibilité alimentaire au cours des semaines et mois passés, qui affectent la ration alimentaire des jeunes et la condition physique des adultes qui nourrissent les jeunes. \\
 
-L'indice est calculé de façon globale pour la communauté regroupant les individus selon deux classes d'âge (juvénile et adulte ; figure __\ref{fig:bc}__) tel que la condition corporelle d'un individu $i$ est la standardisation de sa masse $M_i$ par la masse de moyenne $\bar{m}$  de son espéce $s$ et de sa classe d'âge $a$ comme suit: 
+L'indice est calculé de façon globale pour la communauté regroupant les individus selon deux classes d'âge (juvénile et adulte ; figure __\ref{fig:bc}__) tel que la condition corporelle d'un individu $i$ est la standardisation de sa masse $M_i$ par la masse de moyenne $\bar{m}$  de son espèce $s$ et de sa classe d'âge $a$ comme suit: 
 
 \begin{equation}
 \textit{Condition corporelle}_i =  \frac{M_{i,s,a} -\bar{m}_{s,a}}{\bar{m}_{s,a}}
@@ -595,7 +658,7 @@ L'indice est calculé de façon globale pour la communauté regroupant les indiv
 
 
  
- ```{r bcsp, eval=fig_sp,fig.align = 'center', out.width='45%',fig.cap = cap_txt, fig.scap= scap_txt}
+```{r bcsp, eval=fig_sp,fig.align = 'center', out.width='45%',fig.cap = cap_txt, fig.scap= scap_txt}
 
  
 
@@ -624,8 +687,8 @@ if(nrow(d_capt_site_cc) > 0 ) {
         
         nsite <- d_capt_site_cc$nb_site
         lab <-"\\label{fig:cc"
-        t1 <- "Variation de la condition corporelle des "
-        t2 <- paste0(" pour le station ",site," comparée aux STOC-Capture de type ",hab_txt)
+        t1 <- "Variation de la condition corporelle de "
+        t2 <- paste0(" pour la station ",site," comparée aux STOC-Capture de type ",hab_txt)
         
         cap_txt <- paste0(lab,vec_sp,"}",t1,sp_nom,t2," (n=",nsite,")")
         scap_txt <- paste0("Variation de la condition corporelle de ",sp_nom)
@@ -651,7 +714,7 @@ if(fig_sp) {
 
 
     
-    txt.form0 <- "\nL'indice spécifique est calculé tel que la condition corporelle spécifique d'un individu $i$ est la standardisation de sa masse $M_i$ par l'écart de sa longueur d'aile pliée ($LP$) $\\breve{l}$  à la taille moyenne de la LP $\\bar{l}$ de son espéce $s$ et de sa classe d'âge $a$ comme suit:\n "
+    txt.form0 <- "\nL'indice spécifique est calculé tel que la condition corporelle spécifique d'un individu $i$ est la standardisation de sa masse $M_i$ par l'écart de sa longueur d'aile pliée ($LP$) $\\breve{l}$  à la taille moyenne de la LP $\\bar{l}$ de son espèce $s$ et de sa classe d'âge $a$ comme suit:\n "
     txt.form1 <- "\\begin{equation}
  \\textit{Condition corporelle spécifique}_i = \\frac{M_{i,s,a}}{\\breve{l}_{s,a}}
 \\end{equation}"
@@ -666,7 +729,7 @@ if(fig_sp) {
 
         }
 } else {
-    txt.ccsp <- paste0("Aucune espèce n'est suffisament abondante (nombre médian d'individus capturés supérieur ou égal à 10 voir table \\textbf{\\ref{tab:com}})  pour une présentation spécifique des variations de productivté.\n")
+    txt.ccsp <- paste0("Aucune espèce n'est suffisament abondante (nombre médian d'individus capturés supérieur ou égal à 10 voir table \\textbf{\\ref{tab:com}})  pour une présentation spécifique des variations de productivité.\n")
 }
 
 ## 
@@ -678,7 +741,7 @@ if(fig_sp) {
 \textit{Condition corporelle spécifique}_i = \frac{M_{i,s,a}}{\breve{l}_{s,a}}
 \end{equation}
 
-```{r fig.bc, eval=TRUE,fig.align = 'center', out.width='75%',fig.cap=paste("\\label{fig:bc}Variation de la condition corporelle globale pour la station ",site,".En bleu, la variation des quantiles de l'indicateur national (médiane, 50\\% et 95\\%) pour les station de type ",hab_txt,", en rouge et orange la variation pour la station ",site,sep=""),fig.scap="Variation de la condition corporelle globale"}
+```{r fig.bc, eval=TRUE,fig.align = 'center', out.width='75%',fig.cap=paste("\\label{fig:bc}Variation de la condition corporelle globale pour la station ",site,". En bleu, la variation des quantiles de l'indicateur de référence (médiane, 50\\% et 95\\%) pour les stations de type ",hab_txt,", en rouge et orange la variation pour la station ",site,sep=""),fig.scap="Variation de la condition corporelle globale"}
 
  bodyCondition.site(d,site=site,community_level=TRUE,species_level=FALSE,species=NULL,nom_sp=NULL,fileLog=fileLog,print.fig=TRUE,save.fig=FALSE,add_title=FALSE,facet=FALSE)
 
@@ -707,7 +770,7 @@ est la résultante de la survie annuelle et de la fidélité des
 individus au site de reproduction (pour les adultes) ou au site de
 naissance (pour les juvéniles).
 
-Pour le calcul de cet indicateur, il faut au moins 2 ans de suivis
+Pour le calcul de cet indicateur, il faut au moins 2 ans de suivi
 consécutifs. 
 
 
@@ -766,7 +829,7 @@ if(fig_sp) {
 
 
 
-```{r fig.rr, eval=TRUE,fig.align = 'center', out.width='80%',fig.cap=paste("\\label{fig:surv}Variation du taux de retour sur l'ensemble des espéces pour la station ",site,". Le taux de retour de l'année $t$ est la proportion des individus qui sont revus à l'année $t+1$. En bleu, la variation des quantiles de l'indicateur national (médiane, 50\\% et 95\\%) des stations de type ",hab_txt,", en rouge et orange la variation pour la station ",site,".",sep=""),fig.scap="Variation du taux de retour global"}
+```{r fig.rr, eval=TRUE,fig.align = 'center', out.width='80%',fig.cap=paste("\\label{fig:surv}Variation du taux de retour sur l'ensemble des espéces pour la station ",site,". Le taux de retour de l'année $t$ est la proportion des individus qui sont revus à l'année $t+1$. En bleu, la variation des quantiles de l'indicateur de référence (médiane, 50\\% et 95\\%) des stations de type ",hab_txt,", en rouge et orange la variation pour la station ",site,".",sep=""),fig.scap="Variation du taux de retour global"}
 
 returnRate.site(d,site=site,community_level=TRUE,species_level=FALSE,species=NULL,nom_sp=NULL,fileLog=fileLog,print.fig=TRUE,save.fig=FALSE,add_title=FALSE,facet=TRUE)
 

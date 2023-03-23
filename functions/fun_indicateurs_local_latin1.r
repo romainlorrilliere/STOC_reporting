@@ -3,6 +3,8 @@
 source("functions/fun_generic_latin1.r")
 
 
+
+
 ##' .. content for \description{} (no empty lines) ..
 ##'
 ##' .. content for \details{} ..
@@ -66,7 +68,7 @@ selectedSession.site <- function(site=NULL,d,fileLog=NULL,print.fig=TRUE,save.fi
         vdate <- as.numeric(format(as.Date(paste(2000,vdate,sep="-")),"%j"))-1
         vdate <- sort(c(vdate,aggSessionRef.s$JULIANDAY))
 
-        if(add_title) title_txt <- paste("Date des sessions selectionn�es pour la station",ss) else title_txt <- ""
+        if(add_title) title_txt <- paste("Date des sessions selectionnées pour la station",ss) else title_txt <- ""
 
         gg <- ggplot(data=aggAllSession,aes(x=YEAR,y=med,colour=SESSION,fill=SESSION,group=paste(SESSION)))
         gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.2,colour=NA)
@@ -81,7 +83,7 @@ selectedSession.site <- function(site=NULL,d,fileLog=NULL,print.fig=TRUE,save.fi
         gg <- gg + scale_shape_manual(values=c("TRUE"=19,"FALSE"=8),label=c("TRUE"="oui","FALSE"="non"),breaks=c(TRUE,FALSE),name="Session valide")
         gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
         gg <- gg + scale_y_continuous(labels = function(x) format(as.Date(as.character(x), "%j"), "%d-%m"),breaks = vdate)
-        gg <- gg + labs(title=title_txt,x="Ann�e",y="Date")
+        gg <- gg + labs(title=title_txt,x="Année",y="Date")
 
         if(save.fig) {
             ggfile <- paste("output/",ss,"/session_",ss,".png",sep="")
@@ -130,44 +132,59 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
     if(is.null(site)) site <- sort(as.character(unique(d$NEW.ID_PROG)))
     if(save.fig) checkRepertories(site)
 
-    coordAll <- aggregate(cbind(d$LON,d$LAT) ~ d$NEW.ID_PROG,data=d,mean)
-    colnames(coordAll)[2:3] <- c("LON","LAT")
+    ## coordAll <- aggregate(cbind(d$LON,d$LAT) ~ d$NEW.ID_PROG,data=d,mean)
+    ## les coordonnées sont conservé dans une table avec les region associé dans le dossier library
+    coordAll <- read.csv2("library/reg_biogeo.csv")
+    
     ID_exclu <- as.character(coordAll$NEW.ID_PROG[which(coordAll$LAT<40)])
     coordAll <- subset(coordAll,LAT>40)
 
+    # on récupère les date de début et fin de chaque station
+    stations <- read.csv("library/NEW.ID_PROG_YEARS.csv")
+    stations <- stations[,c("NEW.ID_PROG","FIRST.YEAR","LAST.YEAR")]
+    coordAll <- merge(coordAll,stations,by="NEW.ID_PROG")
+    
+    
     ## transformation en SpatialPointDataFrame
                                         #   coordinates(coordAll) <- ~ LON + LAT
-    ## on d�clare le syst�me de coordonn�es de r�f�rence: d�gr�s d�cimaux WGS84
+    ## on déclare le système de coordonnées de référence: dégrés décimaux WGS84
 
                                         #   proj4string(coordAll) <- CRS("+init=epsg:2154") # lambert 93
 
-    ## conversion en Lamber �tendu
+    ## conversion en Lamber étendu
                                         #  coordAllWGS84 <- spTransform(coordAll,CRS("+proj=longlat +ellps=WGS84")) #transformation en WGS84
                                         #  coordAll2 <- data.frame(NEW.ID_PROG = coordAllWGS84@data,as.data.frame(coordAllWGS84@coords))
                                         #  colnames(coordAll2)[1] <- "NEW.ID_PROG"
                                         #  ID_exclu <- as.character(coordAll2$NEW.ID_PROG[which(coordAll2$LAT<40)])
                                         #  coordAll2 <- subset(coordAll2,LAT>40)
 
-    anneeAll <- unique(subset(d,select=c("NEW.ID_PROG","FIRST.YEAR","LAST.YEAR")))
-    typeAll <-  unique(subset(d,select=c("NEW.ID_PROG","HABITAT")))
+    
+    ### section inutile les données sont déjà dans coordAll
+    
+   ## anneeAll <- unique(subset(d,select=c("NEW.ID_PROG","FIRST.YEAR","LAST.YEAR")))
+    ##typeAll <-  unique(subset(d,select=c("NEW.ID_PROG","BIOGEO_HAB")))
 
                                         #  coordAll2 <- merge(coordAll2,typeAll,by="NEW.ID_PROG",all=TRUE)
                                         #  coordAll2 <- merge(coordAll2,anneeAll,by="NEW.ID_PROG",all=TRUE)
-    colnames(coordAll)[1] <- "NEW.ID_PROG"
-    coordAll2 <- merge(coordAll,typeAll,by="NEW.ID_PROG",all=TRUE)
-    coordAll2 <- merge(coordAll2,anneeAll,by="NEW.ID_PROG",all=TRUE)
+  ##  colnames(coordAll)[1] <- "NEW.ID_PROG"
+  ##  coordAll2 <- merge(coordAll,typeAll,by="NEW.ID_PROG",all=TRUE)
+  ##  coordAll2 <- merge(coordAll2,anneeAll,by="NEW.ID_PROG",all=TRUE)
 
 
     for(ss in site)
     {
-        h <- as.character(coordAll2$HABITAT[coordAll2$NEW.ID_PROG==ss])
-        fy <- max(coordAll2$FIRST.YEAR[coordAll2$NEW.ID_PROG==ss] - 1,min(d$YEAR))
-        ly <- min(coordAll2$LAST.YEAR[coordAll2$NEW.ID_PROG==ss] + 1,max(d$YEAR))
+        h <- as.character(unique(coordAll$HABITAT[coordAll$NEW.ID_PROG==ss]))
+        biogeoref <- as.character(unique(coordAll$BIOGEOREF[coordAll$NEW.ID_PROG==ss]))
+        
+        fy <- max(coordAll$FIRST.YEAR[coordAll$NEW.ID_PROG==ss] - 1,min(d$YEAR))
+        ly <- min(coordAll$LAST.YEAR[coordAll$NEW.ID_PROG==ss] + 1,max(d$YEAR))
 
 
-        coordAllh <- subset(coordAll2,HABITAT == h & FIRST.YEAR <= ly & LAST.YEAR >= fy)
+        if(biogeoref != "National") coordAllh <- subset(coordAll,BIOGEOREF == biogeoref & HABITAT == h & FIRST.YEAR <= ly & LAST.YEAR >= fy)  else 
+          coordAllh <- subset(coordAll, HABITAT == h & FIRST.YEAR <= ly & LAST.YEAR >= fy) 
+        
         nbs <- length(unique(coordAllh$NEW.ID_PROG))-1
-        dcoord.s <- subset(coordAll2,NEW.ID_PROG == ss)
+        dcoord.s <- subset(coordAll,NEW.ID_PROG == ss)
 
         coordAllh$DUREE <- apply(subset(coordAllh,select=c("FIRST.YEAR","LAST.YEAR")),1,FUN = function(X) (min(X[2],ly) - max(X[1],fy) + 1))
 
@@ -178,6 +195,10 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
         world1 <- sf::st_as_sf(map('world', plot = FALSE, fill = TRUE))
         france <- sf::st_as_sf(map('france', plot = FALSE, fill = TRUE))
 
+        if(biogeoref != "National" & biogeoref == "Atlantique"){
+          sf_biogeoref <- st_read("library/Regions/Tout/Regions.shp", quiet = TRUE)
+          sf_biogeoref <- subset(sf_biogeoref,Regions =="Atlantique") # les régions Atlantique_central et lusitatnien, voir NomRegion.csv
+        }
 
         mytheme <- theme(plot.title = element_text(face = "bold",size = rel(1.2), hjust = 0.5),
                          panel.background = element_rect(colour = NA),
@@ -188,17 +209,19 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
                          legend.position=NULL)
 
 
-        if(add_title) title_txt <- paste0("Localisation de la station ",ss,"\n et des ",nbs," stations de r�f�rence de type ",h, "\n suivies entre ",fy," et ",ly) else title_txt <- ""
+        if(add_title) title_txt <- paste0("Localisation de la station ",ss,"\n et des ",nbs," stations de référence  de type ",h, "\n suivies entre ",fy," et ",ly) else title_txt <- ""
         gg <- ggplot()
         gg <- gg + geom_sf(data = world1,fill="white", colour="#7f7f7f", size=0.2)+ geom_sf(data = france,fill="white", colour="#7f7f7f", size=0.5)
-        gg <- gg + coord_sf(xlim=c(-5,9),ylim=c(41.5,52))
+        if(biogeoref != "National") gg <- gg + geom_sf(data= sf_biogeoref, colour = NA, fill = "#feb24c",alpha = 0.7)
+         gg <- gg + coord_sf(xlim=c(-5,9),ylim=c(41.5,52))
 
-        gg <- gg + geom_point(data = coordAll2,aes(LON,LAT),shape=1,size=1,colour="black")
+        gg <- gg + geom_point(data = coordAll,aes(LON,LAT),shape=1,size=1,colour="black")
         gg <- gg + geom_point(data = dcoord.s,aes(LON,LAT), colour="red",size=4)
         gg <- gg + geom_point(data = coordAllh, aes(LON,LAT,colour=DUREE),size=2,shape=19)
         gg <- gg + labs(x="",y="",title=title_txt)
-        gg <- gg + scale_colour_gradient2(low = "#b2182b",mid="#92c5de",high = "#053061",midpoint = 3,name="Nombre\nd'ann�es\nde suivi",limits=c(min_duree,max_duree))
-
+        gg <- gg + scale_colour_gradient2(low = "#b2182b",mid="#92c5de",high = "#053061",midpoint = 3,name="Nombre\nd'années\nde suivi",limits=c(min_duree,max_duree))
+      ##  gg
+        
         if(add_local) {
 
             degloc <- 0.25
@@ -208,13 +231,13 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
             lon_max <- max(dcoord.s$LON,na.rm=TRUE) + degloc
 
 
-            coordAll2.loc <- subset(coordAll2,LAT > lat_min & LAT < lat_max & LON > lon_min & LON < lon_max)
+            coordAll.loc <- subset(coordAll,LAT > lat_min & LAT < lat_max & LON > lon_min & LON < lon_max)
             coordAllh.loc <- subset(coordAllh,LAT > lat_min & LAT < lat_max & LON > lon_min & LON < lon_max)
 
             map <- openmap(c(lat_max,lon_min), c(lat_min,lon_max), zoom = NULL,type = c("osm", "stamen-toner", "stamen-terrain","stamen-watercolor", "esri","esri-topo")[1], mergeTiles = TRUE)
             map.latlon <- openproj(map, projection = "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
             ggloc <- autoplot(map.latlon)  + labs(x = "", y="")
-            ggloc <- ggloc + geom_point(data = coordAll2.loc,aes(x=LON,y=LAT),shape=1,size=1,colour="black")
+            ggloc <- ggloc + geom_point(data = coordAll.loc,aes(x=LON,y=LAT),shape=1,size=1,colour="black")
             ggloc <- ggloc + geom_point(data = dcoord.s,aes(x=LON,y=LAT), colour="red",size=4)
             ggloc <- ggloc + geom_point(data =coordAllh.loc, aes(x=LON,y=LAT,colour=DUREE),size=2,shape=19)
             ggloc <- ggloc + labs(x="",y="",title="",fy," et ",ly,sep="")
@@ -238,7 +261,7 @@ carteStation <- function(site=NULL,d,add_local=FALSE,fileLog=NULL,print.fig=TRUE
 
 
 
-
+#Solution retenue : si référence Nationale, applique .site. Sinon, c'est le résultat de .sitereg qui est rendu par .sitereg
 speciesRelativeAbund.site <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_station=0,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,return_table=FALSE) {
 
     require(ggplot2)
@@ -249,6 +272,13 @@ speciesRelativeAbund.site <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_stat
         habitats <- unique(d$HABITAT)
     } else {
         habitats <- unique(subset(d,NEW.ID_PROG %in% site)$HABITAT)
+    }
+
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-speciesRelativeAbund.sitereg(d,site=site,col_nomsp=col_nomsp,fileLog="log.txt",print.fig=print.fig,save.fig=save.fig,add_title=add_title,return_table=return_table)
+      return(res)
     }
 
     ggTableH <- read.csv2("data_France/quantileEspece_France_.csv",stringsAsFactors=FALSE)
@@ -343,7 +373,7 @@ speciesRelativeAbund.site <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_stat
         gg <- gg + geom_linerange(aes(ymin=ABUND025,ymax=ABUND975),colour="#08306b",alpha=.5)
         gg <- gg + geom_crossbar(aes(ymin = ABUND25, ymax = ABUND75), width = 0.5,alpha=.5,colour="#08306b",fill="#08306b")
         ## gg <- gg + theme(axis.text.x  = element_text(angle=90,vjust=.5))
-        gg <- gg + labs(x="",y="Nombre d'individus adultes captur�s par an",title=title_txt,colour="")
+        gg <- gg + labs(x="",y="Nombre d'individus adultes capturés par an",title=title_txt,colour="")
         gg <- gg + geom_jitter(data=ggNbCapt,aes(x=sp_fig,y=ABUND,colour=YEAR),size=2.2,alpha=.8,width = .1)
         gg <- gg + scale_y_log10(breaks=c(0,1,2,5,10,20,50,100,200,400)) + coord_flip()
         gg <- gg + scale_colour_continuous(low="#ffa200",high="#960000",breaks=colour_break)#"#07307b","#0c5ef6","#c10909","#ea5d18"
@@ -368,6 +398,134 @@ speciesRelativeAbund.site <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_stat
 } ### END speciesRelativeAbund.site
 
 
+speciesRelativeAbund.sitereg <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_station=0,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,return_table=FALSE) {
+
+  require(ggplot2)
+  dsp <- read.csv2("library/sp.csv",stringsAsFactors=FALSE)
+
+  if(is.null(site)) {
+    site <- sort(unique(d$NEW.ID_PROG))
+    regions <- unique(d$BIOGEOREF)
+  } else {
+    regions <- unique(subset(d,NEW.ID_PROG %in% site)$BIOGEOREF)
+  }
+
+  ggTableR <- read.csv2(paste("data_France/quantileEspece_France_reg",regions,".csv", sep = ""),stringsAsFactors=FALSE)
+
+  ggTableR$BIOGEOREF <- as.character(ggTableR$BIOGEOREF)
+  ggTableR$SP <- as.character(ggTableR$SP)
+
+  ggTableR <- subset(ggTableR,PROP_STATION_CAPTURE>seuil_prop_station)
+
+  if(!is.null(col_nomsp)) tabsp <- unique(d[,c("SP",col_nomsp)])
+
+  for(ss in site) {
+    #  print(ss)
+
+    ds <- subset(d,AGE_first == "AD"& NEW.ID_PROG==ss)
+    region <- ds$BIOGEOREF[1]
+    ggTableReg <- subset(ggTableR,BIOGEOREF==region)
+    listSP.s <- ggTableReg$SP
+
+    ds <- subset(ds,SP %in% listSP.s)
+    ds$SP <- as.character(ds$SP)
+
+    du.bague <- unique(subset(ds,select=c("SP","BAGUE","YEAR")))
+    ggNbCapt <- data.frame(table(du.bague$SP,du.bague$YEAR),stringsAsFactors=FALSE)
+    colnames(ggNbCapt) <- c("SP","YEAR","ABUND")
+    #  ggNbCapt <- subset(ggNbCapt,ABUND>0)
+    ggNbCapt$SP <- as.character(ggNbCapt$SP)
+    ggNbCapt$YEAR <- as.numeric(as.character(ggNbCapt$YEAR))
+
+    nbsite <- ggTableReg[,c("SP","nb_site")]
+    ggNbCapt <- merge(ggNbCapt,nbsite,by="SP")
+
+    ggTableS <- aggregate(ggNbCapt$ABUND,by=list(ggNbCapt$SP),sum)
+    colnames(ggTableS) <- c("SP","ABUNDsite_sum_ad")
+    ggTableS$SP <- as.character(ggTableS$SP)
+
+
+    ggTableM <- aggregate(ggNbCapt$ABUND,by=list(ggNbCapt$SP),median)
+    colnames(ggTableM) <- c("SP","ABUNDsite_med_ad")
+    ggTableM$SP <- as.character(ggTableM$SP)
+    ggTableS <- merge(ggTableS,ggTableM,by="SP")
+
+
+
+
+
+
+    ds2 <- subset(d,NEW.ID_PROG==ss & SP %in% listSP.s)
+    ds2$SP <- as.character(ds2$SP)
+
+    du2.bague <- unique(subset(ds2,select=c("SP","BAGUE","YEAR")))
+    ggNbCapt2 <- data.frame(table(du2.bague$SP,du2.bague$YEAR),stringsAsFactors=FALSE)
+    colnames(ggNbCapt2) <- c("SP","YEAR","ABUND")
+    #  ggNbCapt <- subset(ggNbCapt,ABUND>0)
+    ggNbCapt2$SP <- as.character(ggNbCapt2$SP)
+    ggNbCapt2$YEAR <- as.numeric(as.character(ggNbCapt2$YEAR))
+
+    ggTableS2 <- aggregate(ggNbCapt2$ABUND,by=list(ggNbCapt2$SP),sum)
+    colnames(ggTableS2) <- c("SP","ABUNDsite_sum_all")
+    ggTableS2$SP <- as.character(ggTableS2$SP)
+
+
+    ggTableM2 <- aggregate(ggNbCapt2$ABUND,by=list(ggNbCapt2$SP),median)
+    colnames(ggTableM2) <- c("SP","ABUNDsite_med_all")
+    ggTableM2$SP <- as.character(ggTableM2$SP)
+    ggTableS2 <- merge(ggTableS2,ggTableM2,by="SP")
+
+    ggTableS <- merge(ggTableS,ggTableS2,by="SP")
+
+    ggTable <- merge(ggTableS,ggTableReg,by="SP")
+
+
+    if(!is.null(col_nomsp)) {
+      ggTable <- merge(ggTable,tabsp,by="SP")
+      ggTable$sp_fig <- ggTable[,col_nomsp]
+      ggNbCapt <- merge(ggNbCapt,tabsp,by="SP")
+      ggNbCapt$sp_fig <- ggNbCapt[,col_nomsp]
+
+    } else {
+      ggTable$sp_fig <- ggTable$SP
+      ggNbCapt$sp_fig <- ggNbCapt$SP
+    }
+
+    ggTable$sp_fig <- paste0(ggTable$sp_fig," (",ggTable$nb_site,")")
+    ggNbCapt$sp_fig <- paste0(ggNbCapt$sp_fig," (",ggNbCapt$nb_site,")")
+
+
+    if(add_title) title_txt <- paste("Site ",ss) else title_txt <- ""
+    colour_break <- sort(unique(round(seq(min(ggNbCapt$YEAR),max(ggNbCapt$YEAR),length.out=5))))
+
+    gg <- ggplot(ggTable,aes(x=reorder(sp_fig, (ABUNDsite_sum_ad)),y=ABUND50))
+    gg <- gg + geom_linerange(aes(ymin=ABUND025,ymax=ABUND975),colour="#08306b",alpha=.5)
+    gg <- gg + geom_crossbar(aes(ymin = ABUND25, ymax = ABUND75), width = 0.5,alpha=.5,colour="#08306b",fill="#08306b")
+    ## gg <- gg + theme(axis.text.x  = element_text(angle=90,vjust=.5))
+    gg <- gg + labs(x="",y="Nombre d'individus adultes capturés par an",title=title_txt,colour="")
+    gg <- gg + geom_jitter(data=ggNbCapt,aes(x=sp_fig,y=ABUND,colour=YEAR),size=2.2,alpha=.8,width = .1)
+    gg <- gg + scale_y_log10(breaks=c(0,1,2,5,10,20,50,100,200,400)) + coord_flip()
+    gg <- gg + scale_colour_continuous(low="#ffa200",high="#960000",breaks=colour_break)#"#07307b","#0c5ef6","#c10909","#ea5d18"
+
+    if(print.fig) print(gg)
+
+    if(save.fig) {
+      ggfile <- paste("output/",ss,"/nbCapture_site_reg_",ss,".png",sep="")
+      catlog(c("Check",ggfile,":"),fileLog)
+      ppi <- 200
+      ggsave(ggfile,gg,width=11, height=8, unit="in",limitsize = FALSE)
+      catlog(c("\n"),fileLog)
+    }
+  } # END  for(ss in site)
+  if(return_table){
+    ggNbCapt <- dcast(ggNbCapt[,c("SP","YEAR","ABUND")],SP~YEAR)
+    ggTable <- merge(ggTable,ggNbCapt,by="SP")
+    ggTable <- ggTable[order(ggTable$ABUNDsite_sum_ad,decreasing=TRUE),]
+    return(ggTable)
+
+  }
+} ### END speciesRelativeAbund.site
+
 
 
 ##' Graphe de variation d'abondance annuelle par espece et par site
@@ -384,6 +542,13 @@ speciesRelativeAbund.site <- function(d,site=NULL,col_nomsp=NULL,seuil_prop_stat
 abundanceSpeciesYear.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,limitTime=TRUE,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=FALSE,facet_title=TRUE)
 {
                                         # site="9"
+
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-abundanceSpeciesYear.sitereg(d,site=site,species=species,nom_sp=nom_sp,limitTime=limitTime,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title,facet_title=facet_title)
+      return(res)
+     }
 
     require(ggplot2)
 
@@ -425,14 +590,14 @@ abundanceSpeciesYear.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,limit
                 t.site <- t.site[order(t.site$YEAR),]
             }
 
-            t.nbnf.session <- unique(subset(dhAd,select=c("NEW.ID_PROG","YEAR","SESSION","FS")))
-            t.fs <- data.frame(aggregate(FS~YEAR, data=t.nbnf.session, sum, na.rm=FALSE))
-            t.fs <- subset(t.fs,!is.na(FS))
+            t.nbnf.session <- unique(subset(dhAd,select=c("NEW.ID_PROG","YEAR","SESSION","FS.DEDUIT")))
+            t.fs <- data.frame(aggregate(FS.DEDUIT~YEAR, data=t.nbnf.session, sum, na.rm=FALSE))
+            t.fs <- subset(t.fs,!is.na(FS.DEDUIT))
 
 
             t.site <- merge(t.site,t.fs,by=c("YEAR"))
 
-            t.site$ABUND.ADJUST <- t.site$ABUND / t.site$FS*(120*3)
+            t.site$ABUND.ADJUST <- t.site$ABUND / t.site$FS.DEDUIT*(120*3)
 
 
 
@@ -464,7 +629,7 @@ abundanceSpeciesYear.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,limit
             gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
             gg <- gg + theme(legend.position="none")
             gg <- gg + labs(title=title_txt,
-                            x="Ann�e",y="Nombre d'individus adultes captur�s",
+                            x="Année",y="Nombre d'individus adultes capturés",
                             colour="")
 
             if(print.fig) print(gg)
@@ -484,10 +649,120 @@ abundanceSpeciesYear.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,limit
 } ### END abundanceSpeciesYear.site
 
 
+abundanceSpeciesYear.sitereg <- function(d,site=NULL,species=NULL,nom_sp=NULL,limitTime=TRUE,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=FALSE,facet_title=TRUE)
+{
+  # site="9"
+
+  require(ggplot2)
+
+  aggTableNat <- read.csv2("data_France/N_adulte_sp_France_reg.csv")
+
+  if(is.null(site)) site <- sort(as.character(unique(d$NEW.ID_PROG)))
+
+  ## boucle pour figure par site
+  for(ss in site) {
+
+    ## selection des adultes
+    dreg <- subset(d,NEW.ID_PROG == ss & AGE_first == "AD")
+    reg <- as.character(dreg$BIOGEOREF[1])
+    lesAnnees <- as.numeric(as.character(unique(dreg$YEAR)))
+    if(is.null(species)) listSP.s <- sort(as.character(unique(dhAd$ESPECE))) else listSP.s <- species
+
+
+
+    for(sp in listSP.s) {
+
+      dregdSp <- subset(dreg,ESPECE==sp)
+      du.bague <- unique(subset(dregdSp,select=c("BAGUE","ESPECE","NEW.ID_PROG","YEAR")))
+      du.reg <- unique(subset(dregdSp,select=c("NEW.ID_PROG","BIOGEOREF")))
+
+      t.abund <- tapply(du.bague$BAGUE,list(du.bague$YEAR),length)
+      t.abund <- ifelse(is.na(t.abund),0,t.abund)
+      t.abund <- data.frame(t.abund)
+      #   t.abund <- reshape(t.abund, direction = "long",
+      #                      idvar = "",
+      #                      ids=rownames(t.abund),
+      #                      varying = 1:ncol(t.abund),sep="")
+      #            colnames(t.abund) <- c("YEAR","ABUND")
+
+      if(nrow(t.abund) != length(lesAnnees)) {
+        t.site <- rbind(data.frame(YEAR=as.numeric(rownames(t.abund)),ABUND=t.abund[,1]),data.frame(YEAR=lesAnnees[!(lesAnnees%in%as.numeric(rownames(t.abund)))],ABUND=0))
+        t.site <- t.site[order(t.site$YEAR),]
+      } else {
+        t.site <- data.frame(YEAR=as.numeric(rownames(t.abund)),ABUND=t.abund[,1])
+        t.site <- t.site[order(t.site$YEAR),]
+      }
+
+      t.nbnf.session <- unique(subset(dreg,select=c("NEW.ID_PROG","YEAR","SESSION","FS.DEDUIT")))
+      t.fs <- data.frame(aggregate(FS.DEDUIT~YEAR, data=t.nbnf.session, sum, na.rm=FALSE))
+      t.fs <- subset(t.fs,!is.na(FS.DEDUIT))
+
+
+      t.site <- merge(t.site,t.fs,by=c("YEAR"))
+
+      t.site$ABUND.ADJUST <- t.site$ABUND / t.site$FS.DEDUIT*(120*3)
+
+
+
+      minYear <- max(min(t.site$YEAR)-1,min(aggTableNat$YEAR))
+      maxYear <- min(max(t.site$YEAR)+1,max(aggTableNat$YEAR))
+
+      aggTable.s <- subset(aggTableNat,BIOGEOREF == reg & ESPECE == sp & YEAR >= minYear & YEAR <= maxYear)
+      ggSite <- data.frame(YEAR = t.site$YEAR,BIOGEOREF = paste("Station:",ss),CIinf=NA,CIquart_inf=NA,med=t.site$ABUND.ADJUST,CIquart_sup=NA,CIsup=NA,ESPECE=sp)
+
+      aggTable.s <- rbind(aggTable.s,ggSite)
+
+      if(add_title) {
+        if(!is.null(nom_sp)) sp_fig <- nom_sp[sp == listSP.s] else sp_fig <- sp
+        title_txt <- paste(sp_fig,": Station ",ss,sep="")
+      } else {
+        title_txt <- ""
+      }
+
+      if(facet_title) if(!is.null(nom_sp)) aggTable.s$facet <- nom_sp[sp == listSP.s] else aggTable.s$facet <- sp
+
+      gg <- ggplot(aggTable.s,aes(x=YEAR,y=med,colour=BIOGEOREF,fill=BIOGEOREF))
+      if(!is.null(facet_title)) gg <- gg + facet_wrap(.~facet)
+      gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.2,colour = NA)
+      gg <- gg + geom_line(aes(y=CIquart_inf),size=0.6,alpha=.6)+ geom_line(aes(y=CIquart_sup),size=0.6,alpha=.6)
+      gg <- gg + geom_line(size=1.5,alpha=1)
+      gg <- gg + geom_point(data=ggSite,size=3)
+      gg <- gg + scale_colour_manual(values =setNames(c("#07307b","#d71818"),c(reg,paste("Station:",ss))))
+      gg <- gg + scale_fill_manual(values= setNames(c("#07307b","#d71818"),c(reg,paste("Station:",ss))),guide=FALSE)
+      gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
+      gg <- gg + theme(legend.position="none")
+      gg <- gg + labs(title=title_txt,
+                      x="Année",y="Nombre d'individus adultes capturés",
+                      colour="")
+
+      if(print.fig) print(gg)
+
+      if(save.fig) {
+
+        ggfile <- paste("output/",ss,"/N_adulte_Site_reg",ss,"_",sp,".png",sep="")
+
+        catlog(c("Check",ggfile,":"),fileLog)
+        ggsave(ggfile,gg)
+        catlog(c("\n"),fileLog)
+      }
+
+    } # END  for(sp in listSP.s)
+  } # END  for(ss in site)
+
+} ### END abundanceSpeciesYear.sitereg
 
 
 abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE)
 {
+
+
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-abundanceYear.sitereg(d,site=site,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title)
+      return(res)
+    }
+
     require(ggplot2)
 
                                         #tabSpeQuant <- read.csv2("output/quantileEspece_France_.csv",stringsAsFactors=FALSE)
@@ -509,10 +784,10 @@ abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save
                        varying = 1:ncol(t.abund),sep="")
     colnames(t.abund) <- c("YEAR","ABUND","NEW.ID_PROG")
 
-    t.nbnf.session <- unique(subset(dhAd,select=c("NEW.ID_PROG","YEAR","SESSION","FS")))
-    t.nbnf <- aggregate(FS~NEW.ID_PROG+YEAR, data=t.nbnf.session, sum, na.rm=FALSE)
+    t.nbnf.session <- unique(subset(dhAd,select=c("NEW.ID_PROG","YEAR","SESSION","FS.DEDUIT")))
+    t.nbnf <- aggregate(FS.DEDUIT~NEW.ID_PROG+YEAR, data=t.nbnf.session, sum, na.rm=FALSE)
 
-    t.fs.output <- tapply(t.nbnf.session$FS,list(t.nbnf.session$NEW.ID_PROG,t.nbnf.session$YEAR), sum)
+    t.fs.output <- tapply(t.nbnf.session$FS.DEDUIT,list(t.nbnf.session$NEW.ID_PROG,t.nbnf.session$YEAR), sum)
                                         #t.fs.saisi <- tapply(t.nbnf.session$FS,list(t.nbnf.session$NEW.ID_PROG,t.nbnf.session$YEAR), sum)
 
     t.fs <- data.frame(NEW.ID_PROG = rep(rownames(t.fs.output),ncol(t.fs.output)),
@@ -543,7 +818,7 @@ abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save
         aggTable.s <- rbind(aggTable.s,ggSite)
         aggTable.s$HABITAT <- as.character(aggTable.s$HABITAT)
 
-        if(add_title) title_txt <- paste("Captures toutes esp�ces\npour la station ",ss,sep="") else title_txt <- ""
+        if(add_title) title_txt <- paste("Captures toutes espèces\npour la station ",ss,sep="") else title_txt <- ""
 
      #   browser()
         gg <- ggplot(aggTable.s,aes(x=YEAR,y=med,colour=HABITAT,fill=HABITAT))
@@ -559,7 +834,7 @@ abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save
         ##gg <- gg + scale_fill_manual(breaks=c(habitat,paste("Station:",ss)),values =c("#db6363","#08306b"),guide=FALSE)
         gg <- gg + theme(legend.position="none")
         gg <- gg + labs(title=title_txt,
-                        x="Ann�e",y="Nombre d'individus adultes captur�s",
+                        x="Année",y="Nombre d'individus adultes capturés",
                         colour="")
 
         if(print.fig) print(gg)
@@ -574,7 +849,92 @@ abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save
 } ### END abundanceYear.site
 
 
+abundanceYear.sitereg <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE)
+{
+  require(ggplot2)
 
+  #tabSpeQuant <- read.csv2("output/quantileEspece_France_.csv",stringsAsFactors=FALSE)
+
+  if(is.null(site)) site <- sort(unique(d$NEW.ID_PROG))
+
+  aggTable <- read.csv2("data_France/N_adulte_France_reg_Atlantique.csv")
+
+  dreg <- subset(d,AGE_first == "AD")
+
+  du.bague <- unique(subset(dreg,select=c("BAGUE","NEW.ID_PROG","YEAR")))
+  du.reg <- unique(subset(dreg,select=c("NEW.ID_PROG","BIOGEOREF")))
+  t.abund <- tapply(du.bague$BAGUE,list(du.bague$NEW.ID_PROG,du.bague$YEAR),length)
+  t.abund <- ifelse(is.na(t.abund),0,t.abund)
+  t.abund <- data.frame(t.abund)
+  t.abund <- reshape(t.abund, direction = "long",
+                     idvar = "NEW.ID_PROG",
+                     ids=rownames(t.abund),
+                     varying = 1:ncol(t.abund),sep="")
+  colnames(t.abund) <- c("YEAR","ABUND","NEW.ID_PROG")
+
+  t.nbnf.session <- unique(subset(dreg,select=c("NEW.ID_PROG","YEAR","SESSION","FS.DEDUIT")))
+  t.nbnf <- aggregate(FS.DEDUIT~NEW.ID_PROG+YEAR, data=t.nbnf.session, sum, na.rm=FALSE)
+
+  t.fs.output <- tapply(t.nbnf.session$FS.DEDUIT,list(t.nbnf.session$NEW.ID_PROG,t.nbnf.session$YEAR), sum)
+  #t.fs.saisi <- tapply(t.nbnf.session$FS,list(t.nbnf.session$NEW.ID_PROG,t.nbnf.session$YEAR), sum)
+
+  t.fs <- data.frame(NEW.ID_PROG = rep(rownames(t.fs.output),ncol(t.fs.output)),
+                     YEAR = rep(colnames(t.fs.output),each=nrow(t.fs.output)),
+                     FS.OUPUT = as.vector(as.matrix(t.fs.output)))
+  t.fs <- subset(t.fs,!is.na(FS.OUPUT))
+
+
+  t.abund <- merge(t.abund,t.fs,by=c("NEW.ID_PROG","YEAR"))
+  t.abund <- merge(t.abund,du.reg,by="NEW.ID_PROG")
+
+  t.abund$ABUND.ADJUST <- t.abund$ABUND / t.abund$FS.OUPUT*(120*3)
+
+  for(ss in site) {
+    # catlog(c("site:",s,"\n"),fileLog)
+
+
+    tSite <- subset(t.abund, NEW.ID_PROG==ss)
+    region <- as.character(tSite$BIOGEOREF[1])
+    minYear <- max(min(tSite$YEAR)-1,min(t.abund$YEAR))
+    maxYear <- min(max(tSite$YEAR)+1,max(t.abund$YEAR))
+
+    aggTable.s <- subset(aggTable,BIOGEOREF==region)
+    aggTable.s <- subset(aggTable.s,YEAR>=minYear & YEAR<=maxYear)
+
+    ggSite <- data.frame(YEAR = tSite$YEAR,BIOGEOREF = paste("Station:",ss),CIinf=NA,CIquart_inf=NA,med=tSite$ABUND.ADJUST,CIquart_sup=NA,CIsup=NA)
+
+    aggTable.s <- rbind(aggTable.s,ggSite)
+    aggTable.s$BIOGEOREF <- as.character(aggTable.s$BIOGEOREF)
+
+    if(add_title) title_txt <- paste("Captures toutes espèces\npour la station ",ss,sep="") else title_txt <- ""
+
+    #   browser()
+    gg <- ggplot(aggTable.s,aes(x=YEAR,y=med,colour=BIOGEOREF,fill=BIOGEOREF))
+    gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.2,colour = NA)
+    gg <- gg + geom_line(aes(y=CIquart_inf),size=0.6,alpha=.6)+ geom_line(aes(y=CIquart_sup,color=BIOGEOREF),size=0.6,alpha=.6)
+    gg <- gg + geom_line(size=1.5,alpha=1)
+    gg <- gg + geom_point(data=ggSite,size=3)
+
+    gg <- gg + scale_colour_manual(values =setNames(c("#07307b","#d71818"),c(region,paste("Station:",ss))))
+    gg <- gg + scale_fill_manual(values= setNames(c("#07307b","#d71818"),c(region,paste("Station:",ss))),guide=FALSE)
+
+    ##gg <- gg + scale_colour_manual(breaks=c(habitat,paste("Station:",ss)),values =c("#db6363","#08306b"))
+    ##gg <- gg + scale_fill_manual(breaks=c(habitat,paste("Station:",ss)),values =c("#db6363","#08306b"),guide=FALSE)
+    gg <- gg + theme(legend.position="none")
+    gg <- gg + labs(title=title_txt,
+                    x="Année",y="Nombre d'individus adultes capturés",
+                    colour="")
+
+    if(print.fig) print(gg)
+
+    if(save.fig) {
+      ggfile <- paste("output/",ss,"/N_adulte_Site_reg",ss,".png",sep="")
+      catlog(c("Check",ggfile,":"),fileLog)
+      ggsave(ggfile,gg)
+      catlog(c("\n"),fileLog)
+    }
+  }# END for(ss in site)
+} ### END abundanceYear.sitereg
 
 
 
@@ -585,6 +945,14 @@ abundanceYear.site <- function(d,site=NULL,fileLog="log.txt",print.fig=TRUE,save
 
 productivityYear.site <- function(d,site=NULL,limitTime=TRUE,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE)
 {
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-productivityYear.sitereg(d,site=site,limitTime=limitTime,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title)
+      return(res)
+    }
+
+
     require(ggplot2)
                                         #site="193"
 
@@ -637,7 +1005,7 @@ productivityYear.site <- function(d,site=NULL,limitTime=TRUE,fileLog="log.txt",p
         gg <- gg + scale_colour_manual(values =setNames(c("#07307b","#d71818"),c(habitat,paste("Station:",ss))))
         gg <- gg + scale_fill_manual(values= setNames(c("#07307b","#d71818"),c(habitat,paste("Station:",ss))),guide=FALSE)
         gg <- gg + labs(title=title_txt,
-                        x="Ann�e",y="Productivit�: Njuv/Nad")
+                        x="Année",y="Productivité: Njuv/Nad")
         gg <- gg + theme(legend.position="none")
 
         if(print.fig) print(gg)
@@ -654,10 +1022,95 @@ productivityYear.site <- function(d,site=NULL,limitTime=TRUE,fileLog="log.txt",p
 }### END productivityYear.site
 
 
+productivityYear.sitereg <- function(d,site=NULL,limitTime=TRUE,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE)
+{
+
+
+
+  require(ggplot2)
+  #site="193"
+
+
+  dp <- unique(subset(d,AGE_first != "VOL" & MIGRATION != "" ,select = c("MIGRATION","YEAR","NEW.ID_PROG","BIOGEOREF","BAGUE","AGE_first")))
+
+  dNbAge <- aggregate(BAGUE ~ (MIGRATION + YEAR + NEW.ID_PROG + BIOGEOREF + AGE_first), data=dp,length)
+
+  dNbJuv <- subset(dNbAge,AGE_first=="JUV")
+
+  dNbAd <- subset(dNbAge,AGE_first=="AD")
+
+  dNb <- merge(dNbJuv,dNbAd,by=c("MIGRATION","YEAR","NEW.ID_PROG","BIOGEOREF"),all=TRUE)
+  dNb$BAGUE.x[is.na(dNb$BAGUE.x)] <- 0
+  dNb$BAGUE.y[is.na(dNb$BAGUE.y)] <- 0
+  dNb$PROD <- dNb$BAGUE.x / (dNb$BAGUE.y)
+  dNb$PROD[dNb$PROD == Inf] <- NA
+
+  #   ggTable.abund <- na.omit(ggTable.abund)
+
+  aggTable <- read.csv2("data_France/Productivite_all_regAtlantique.csv")
+
+  if(is.null(site)) site <- sort(as.character(unique(d$NEW.ID_PROG)))
+
+
+
+  #  print(site)
+  for(ss in site) {
+    #  catlog(c("site:",s,"\n"),fileLog)
+    tSite <- subset(dNb, NEW.ID_PROG==ss)
+    region <- as.character(tSite$BIOGEOREF[1])
+    minYear <- max(min(tSite$YEAR)-1,min(dp$YEAR))
+    maxYear <- min(max(tSite$YEAR)+1,max(dp$YEAR))
+
+    aggTable.s <- subset(aggTable,BIOGEOREF==region)
+    aggTable.s <- subset(aggTable.s,YEAR>=minYear & YEAR<=maxYear)
+
+    ggSite <- data.frame(YEAR = tSite$YEAR,BIOGEOREF= paste("Station:",ss),MIGRATION=tSite$MIGRATION,
+                         CIinf=NA,CIquart_inf=NA,med=tSite$PROD,CIquart_sup=NA,CIsup=NA)
+    aggTable.s <- rbind(aggTable.s,ggSite)
+
+    if(add_title) title_txt <-  paste("Station",ss) else title_txt <- ""
+
+    gg <- ggplot(aggTable.s,aes(x=YEAR,y=med,colour=BIOGEOREF,fill=BIOGEOREF))+ facet_grid(MIGRATION~.,scales="free_y")
+    gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.2,colour = NA )
+    gg <- gg + geom_line(alpha=.8,size=1.5)
+    gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
+    gg <- gg + geom_point(data=subset(aggTable.s,BIOGEOREF==paste("Station:",ss)),size=2)
+    gg <- gg + scale_x_continuous(breaks=pretty_breaks())
+    gg <- gg + scale_colour_manual(values =setNames(c("#07307b","#d71818"),c(region,paste("Station:",ss))))
+    gg <- gg + scale_fill_manual(values= setNames(c("#07307b","#d71818"),c(region,paste("Station:",ss))),guide=FALSE)
+    gg <- gg + labs(title=title_txt,
+                    x="Année",y="Productivité: Njuv/Nad")
+    gg <- gg + theme(legend.position="none")
+
+    if(print.fig) print(gg)
+
+
+    if(save.fig) {
+      ggfile <- paste("output/",ss,"/Productivite_Site_",ss,".png",sep="")
+      catlog(c("Check",ggfile,":"),fileLog)
+      ggsave(ggfile,gg)
+      catlog(c("\n"),fileLog)
+    }
+
+  }# END for(ss in site)
+}### END productivityYear.sitereg
+
+
+
+
+
 
 
 productivityYearSpecies.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet = TRUE,seuilsp=0)
 {
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-productivityYearSpecies.sitereg(d,site=site,species=species,nom_sp=nom_sp,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title,facet = facet,seuilsp=seuilsp)
+      return(res)
+    }
+
+
     require(ggplot2)
 ### d <- read.csv2("output/data.csv",stringsAsFactors=FALSE)
 
@@ -736,8 +1189,8 @@ productivityYearSpecies.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,fi
 
                 aggTable.ss <- subset(aggTable.s,ESPECE == sp)
 
-                if(nrow(aggTable.ss)>0) {
-                      } #END if(nrow(aggTable.ss)>0)
+                # if(nrow(aggTable.ss)>0) {
+                #       } #END if(nrow(aggTable.ss)>0)
 
                 if(facet) if(!is.null(nom_sp)) aggTable.ss$facet <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else aggTable.ss$facet <- sp
 
@@ -754,7 +1207,7 @@ productivityYearSpecies.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,fi
 
                   gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
                 gg <- gg + labs(title=title_txt,
-                                x="Ann�e",y="Productivit�: Njuv/Nad")
+                                x="Année",y="Productivité: Njuv/Nad")
                 gg <- gg + theme(legend.position="none")
 
                 if(print.fig) print(gg)
@@ -772,13 +1225,133 @@ productivityYearSpecies.site <- function(d,site=NULL,species=NULL,nom_sp=NULL,fi
     }# END for(ss in site) {
 }### END productivityYearSpecies.site
 
+productivityYearSpecies.sitereg <- function(d,site=NULL,species=NULL,nom_sp=NULL,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet = TRUE,seuilsp=0)
+{
+  require(ggplot2)
+  ### d <- read.csv2("output/data.csv",stringsAsFactors=FALSE)
 
+  if(!is.null(nom_sp)) t_nom_sp <- data.frame(species=species,nom_sp=nom_sp)
+
+  tabSpeQuant <- read.csv2("data_france/quantileEspece_France_regAtlantique.csv",stringsAsFactors=FALSE)
+
+  dp <- unique(subset(d,AGE_first != "VOL" & MIGRATION != "",select = c("ESPECE","MIGRATION","YEAR","NEW.ID_PROG","BIOGEOREF","BAGUE","AGE_first")))
+
+  dNbAge <- aggregate(BAGUE ~ (ESPECE + MIGRATION + YEAR + NEW.ID_PROG + BIOGEOREF + AGE_first), data=dp,length)
+
+  dNbJuv <- subset(dNbAge,AGE_first=="JUV")
+
+  dNbAd <- subset(dNbAge,AGE_first=="AD")
+
+  dNb <- merge(dNbJuv,dNbAd,by=c("ESPECE","MIGRATION","YEAR","NEW.ID_PROG","BIOGEOREF"),all=TRUE)
+  dNb$BAGUE.x[is.na(dNb$BAGUE.x)] <- 0
+  dNb$BAGUE.y[is.na(dNb$BAGUE.y)] <- 0
+  dNb$PROD <- dNb$BAGUE.x / (dNb$BAGUE.y)
+  dNb$PROD[dNb$PROD == Inf] <- NA
+
+
+  aggTable <- aggregate(PROD ~ (YEAR + BIOGEOREF+ESPECE + MIGRATION), data= dNb, quantile,c(0.025,.25,0.5,.75,0.975))
+  aggTable <- data.frame(aggTable[,1:4],aggTable[5][[1]][,1:5])
+  colnames(aggTable)[5:9] <- c("CIinf","CIquart_inf","med","CIquart_sup","CIsup")
+
+  for(rr in unique(aggTable$BIOGEOREF)) {
+    tabSpeReg <- subset(tabSpeQuant,BIOGEOREF==rr)
+    listSP <- sort(as.character(tabSpeReg$SP[tabSpeReg$PROP_STATION_CAPTURE>seuilsp]))
+    aggTable.r <- subset(aggTable,BIOGEOREF==rr & ESPECE %in% listSP)
+    if (rr== unique(aggTable$BIOGEOREF)[1]) aggTable.all <- aggTable.r else aggTable.all <- rbind(aggTable.all,aggTable.r)
+  }# END for(hh in unique(aggTable$HABITAT))
+
+
+  if(is.null(site))site <- sort(as.character(unique(d$NEW.ID_PROG)))
+
+  for(ss in site) {
+    dNbsite <- subset(dNb,NEW.ID_PROG==ss)
+
+    rr <- as.character(dNbsite$BIOGEOREF[1])
+    tabSpeReg <- subset(tabSpeQuant,BIOGEOREF==rr)
+
+    listSP <- sort(as.character(tabSpeReg$SP[tabSpeReg$PROP_STATION_CAPTURE>seuilsp]))
+    dNbsite <- subset(dNbsite,ESPECE %in% listSP)
+
+    dNbsite$NB <- dNbsite$BAGUE.x + dNbsite$BAGUE.y
+    aggNbSp <- aggregate(NB~(YEAR+ESPECE),data=dNbsite,sum)
+    aggSp <- aggregate(NB~ESPECE,data=aggNbSp,FUN= median)
+
+    if(is.null(species)) listSP.s <- sort(as.character(aggSp$ESPECE[aggSp$NB>10])) else listSP.s <- species
+
+    dNbsite <- subset(dNbsite,ESPECE %in% listSP.s)
+
+    if(nrow(dNbsite) > 0) {
+      minYear <- max(min(dNbsite$YEAR)-1,min(aggTable.all$YEAR))
+      maxYear <- min(max(dNbsite$YEAR)+1,max(aggTable.all$YEAR))
+
+      aggTable.r <- subset(aggTable.all,BIOGEOREF==rr & ESPECE %in% listSP.s & YEAR >= minYear & YEAR <= maxYear)
+
+      ggSite <- data.frame(YEAR = dNbsite$YEAR,BIOGEOREF= paste("Station:",ss),ESPECE=dNbsite$ESPECE,MIGRATION=dNbsite$MIGRATION,
+                           CIinf=NA,CIquart_inf=NA,med=dNbsite$PROD,CIquart_sup=NA,CIsup=NA)
+      aggTable.s <- rbind(aggTable.r,ggSite)
+
+
+
+
+      for(sp in listSP.s) {
+
+
+        if(add_title) {
+          if(!is.null(nom_sp)) sp_fig <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else sp_fig <- sp
+          title_txt <- paste(sp_fig,": Station ",ss,sep="")
+        } else {
+          title_txt <- ""
+        }
+
+        aggTable.ss <- subset(aggTable.s,ESPECE == sp)
+
+        # if(nrow(aggTable.ss)>0) {
+        # } #END if(nrow(aggTable.ss)>0)
+
+        if(facet) if(!is.null(nom_sp)) aggTable.ss$facet <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else aggTable.ss$facet <- sp
+
+        gg <- ggplot(aggTable.ss,aes(x=YEAR,y=med,colour=BIOGEOREF,fill=BIOGEOREF))
+
+        gg <- gg + geom_ribbon(aes(x=YEAR,ymin=CIinf,ymax=CIsup),alpha=.2,colour = NA )
+        gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
+        gg <- gg + geom_line(alpha=.8,size=1.5)
+
+        gg <- gg + geom_point(data=subset(aggTable.ss,BIOGEOREF==paste("Station:",ss)),size=2)
+        gg <- gg + scale_colour_manual(values =setNames(c("#07307b","#d71818"),c(rr,paste("Station:",ss))))
+        gg <- gg + scale_fill_manual(values= setNames(c("#07307b","#d71818"),c(rr,paste("Station:",ss))),guide=FALSE)
+        if(!is.null(facet)) gg <- gg + facet_wrap(.~facet,scales="free_y")
+
+        gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
+        gg <- gg + labs(title=title_txt,
+                        x="Année",y="Productivité: Njuv/Nad")
+        gg <- gg + theme(legend.position="none")
+
+        if(print.fig) print(gg)
+
+
+        if(save.fig) {
+          ggfile <- paste("output/",ss,"/Productivite_Espece_Site_",ss,".png",sep="")
+          catlog(c("Check",ggfile,":"),fileLog)
+          ggsave(ggfile,gg)
+          catlog(c("\n"),fileLog)
+        }
+
+      }# END for(sp in listSP.s)
+    }# END   if(nrow(dNbsite) > 0)
+  }# END for(ss in site) {
+}### END productivityYearSpecies.site
 
 
 
 
 bodyCondition.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,species=NULL,nom_sp=NULL,limitTime=TRUE,seuilAbondanceAnnee=30,seuilAbondanceAnneeSite=10,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet=TRUE,return.table=FALSE)
 {
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-bodyCondition.sitereg(d,site=site,community_level=community_level,species_level=species_level,species=species,nom_sp=nom_sp,limitTime=limitTime,seuilAbondanceAnnee=seuilAbondanceAnnee,seuilAbondanceAnneeSite=seuilAbondanceAnneeSite,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title,facet=facet,return.table=return.table)
+      return(res)
+    }
 
 
     require(ggplot2)
@@ -827,7 +1400,7 @@ bodyCondition.site <- function(d,site=NULL,community_level=TRUE,species_level=TR
                     maxYear <- min(max(aggTable_s$YEAR)+1,max(aggTable$YEAR))
 
 
-                    if(add_title) title_txt <- paste("Station ",s,": toutes esp�ces confondues",sep="") else title_txt <- ""
+                    if(add_title) title_txt <- paste("Station ",s,": toutes espèces confondues",sep="") else title_txt <- ""
 
                     gg <- ggplot(data=aggTableTot,aes(x=YEAR,y=med,colour=gr,fill=gr)) + facet_grid(AGE_first~.,scales="free_y")
                     gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.4,colour = NA)
@@ -835,7 +1408,7 @@ bodyCondition.site <- function(d,site=NULL,community_level=TRUE,species_level=TR
                     gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
                     gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6","#c10909","#ea5d18"),name="")
                     gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6","#c10909","#ea5d18"),guide=FALSE)
-                    gg <- gg + labs(title=title_txt,x="Ann�e",y="Condition corporelle: (MA-MA_mean_sp)/MA_mean_sp")
+                    gg <- gg + labs(title=title_txt,x="Année",y="Condition corporelle: (MA-MA_mean_sp)/MA_mean_sp")
                     gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
                     gg <- gg + theme(legend.position="none")
 
@@ -894,7 +1467,7 @@ bodyCondition.site <- function(d,site=NULL,community_level=TRUE,species_level=TR
 
               if(print.fig |save.fig) {
 
-                    plot_local_sp(aggTableTot.sp,species,nom_sp,print.fig,save.fig,add_title,facet,facet_group="AGE_first",y_lab="Condition corporelle: Masse/(Ecart � la taille moyenne + 1)",x_lab="Ann�e",title_txt="",vecCol=c("#07307b","#0c5ef6","#c10909","#ea5d18"), minYear =min(aggTable.sp_s$YEAR)-1,maxYear = max(aggTable.sp_s$YEAR))
+                    plot_local_sp(aggTableTot.sp,species,nom_sp,print.fig,save.fig,add_title,facet,facet_group="AGE_first",y_lab="Condition corporelle: Masse/(Ecart à la taille moyenne + 1)",x_lab="Année",title_txt="",vecCol=c("#07307b","#0c5ef6","#c10909","#ea5d18"), minYear =min(aggTable.sp_s$YEAR)-1,maxYear = max(aggTable.sp_s$YEAR))
 
                 } # END if(print.fig |save.fig)
         } else {  # END if(nrow(tS.seuil)>0)
@@ -911,11 +1484,151 @@ if(return.table) {
 
 }### END bodyCondition.site
 
+bodyCondition.sitereg <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,species=NULL,nom_sp=NULL,limitTime=TRUE,seuilAbondanceAnnee=30,seuilAbondanceAnneeSite=10,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet=TRUE,return.table=FALSE)
+{
+
+
+  require(ggplot2)
+
+  if(is.null(site))
+    site <- sort(unique(d$NEW.ID_PROG))
+
+
+  if(community_level) {
+    aggTable <-  read.csv2("data_France/bodyCondition_France_reg.csv")
+    aggTable$gr <- paste("FRANCE,",aggTable$AGE_first)
+    aggTable$SITE <- "FRANCE"
+  }
+
+  if(species_level) {
+    aggTable.sp <- read.csv2("data_France/bodyCondition_France_sp_reg.csv")
+    aggTable.sp$gr <- paste("FRANCE,",aggTable.sp$AGE_first)
+    aggTable.sp$SITE <- "FRANCE"
+  }
+
+
+  for(s in site) {
+    tSite <- subset(d,AGE_first!="VOL" & NEW.ID_PROG==s & (!(is.na(MA_borne))) & (!(is.na(LP_indice_borne))))
+    r <- tSite$BIOGEOREF[1]
+
+    if(community_level) {
+
+      if(nrow(tSite)>10) {
+
+        aggTable_s <- aggregate(MA_indice_borne ~ AGE_first + YEAR + BIOGEOREF,tSite,quantile, c(0.025,0.25,0.5,0.75,0.975))
+        if(nrow(aggTable_s)==1) {
+          aggTable_s <- as.data.frame(c(aggTable_s[,1:3],aggTable_s[4][[1]][,1:5]))
+          colnames(aggTable_s)[1:3] <- c("AGE_first","YEAR","BIOGEOREF")
+        } else {
+          aggTable_s <- data.frame(aggTable_s[,1:3],aggTable_s[4][[1]][,1:5])
+        }
+
+        colnames(aggTable_s)[4:8] <- c("CIinf","CIquart_inf","med","CIquart_sup","CIsup")
+
+        aggTable_s$gr <- paste("Site ",s,",",aggTable_s$AGE_first, sep="")
+        aggTable_s$SITE <- s
+        aggTableTot <- rbind(subset(aggTable,BIOGEOREF==r),aggTable_s)
+        if(print.fig |save.fig) {
+
+          minYear <- max(min(aggTable_s$YEAR)-1,min(aggTable$YEAR))
+          maxYear <- min(max(aggTable_s$YEAR)+1,max(aggTable$YEAR))
+
+
+          if(add_title) title_txt <- paste("Station ",s,": toutes espèces confondues",sep="") else title_txt <- ""
+
+          gg <- ggplot(data=aggTableTot,aes(x=YEAR,y=med,colour=gr,fill=gr)) + facet_grid(AGE_first~.,scales="free_y")
+          gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.4,colour = NA)
+          gg <- gg + geom_point(size=2,alpha=.8) + geom_line(size=1.5,alpha=.8)
+          gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
+          gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6","#c10909","#ea5d18"),name="")
+          gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6","#c10909","#ea5d18"),guide=FALSE)
+          gg <- gg + labs(title=title_txt,x="Année",y="Condition corporelle: (MA-MA_mean_sp)/MA_mean_sp")
+          gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
+          gg <- gg + theme(legend.position="none")
+
+          if(print.fig) print(gg)
+
+          if(save.fig) {
+            ggfile <- paste("output/",s,"/bodyCondition_site",s,".png",sep="")
+            catlog(c("Check",ggfile,":"),fileLog)
+            ggsave(ggfile,gg)
+            catlog(c("\n"),fileLog)
+          }
+        } # END if(print.fig |save.fig)
+      } # END  if(nrow(tSite)>10)
+
+    } # END if(community_level) {
+
+    if(species_level) {
+
+      if(!is.null(nom_sp)) t_nom_sp <- data.frame(species=species,nom_sp=nom_sp)
+
+      if(is.null(species)) {
+
+        t.seuil<- aggregate(BAGUE ~ SP + YEAR, data = unique(subset(tSite,select=c("BAGUE","SP","YEAR"))), FUN = length)
+        t.seuil<- aggregate(BAGUE ~ SP , data =  t.seuil, FUN = median)
+        t.seuil <- subset( t.seuil,BAGUE > 10)#length(unique(d.a$NEW.ID_PROG))*.25)
+
+        tS.seuil <- subset(tSite,SP %in% t.seuil$SP)
+        list_sp <- unique(t.seuil$SP)
+
+      } else {
+        list_sp <- species
+
+        tS.seuil <- subset(tSite, SP %in% list_sp)
+      } # END ELSE if(is.null(species))
+
+      if(nrow(tS.seuil)>0) {
+
+        tS.seuil$MA_LP <- tS.seuil$MA_borne/tS.seuil$LP_indice_borne
+
+        aggTable.sp_s <- aggregate(MA_LP ~ SP + YEAR + AGE_first + BIOGEOREF, tS.seuil, quantile, c(0.025,0.25,0.5,0.75,0.975))
+
+        if(nrow(aggTable.sp_s)==1) {
+          aggTable.sp_s <- as.data.frame(c(aggTable.sp_s[,1:4],aggTable.sp_s[5][[1]][,1:5]))
+          colnames(aggTable.sp_s)[1:4] <- c("SP","YEAR","AGE_first","BIOGEOREF")
+        } else {
+          aggTable.sp_s <- data.frame(aggTable.sp_s[,1:4],aggTable.sp_s[5][[1]][,1:5])
+        }
+
+        colnames(aggTable.sp_s)[5:9] <- c("CIinf","CIquart_inf","med","CIquart_sup","CIsup")
+
+        aggTable.sp_s$gr <- paste("Site ",s,",",aggTable.sp_s$AGE_first, sep="")
+        aggTable.sp_s$SITE <- s
+
+        aggTable.sp <- aggTable.sp[,colnames(aggTable.sp_s)]
+        aggTableTot.sp <- rbind(subset(aggTable.sp,SP %in% list_sp & BIOGEOREF==r),aggTable.sp_s)
+
+        if(print.fig |save.fig) {
+
+          plot_local_sp(aggTableTot.sp,species,nom_sp,print.fig,save.fig,add_title,facet,facet_group="AGE_first",y_lab="Condition corporelle: Masse/(Ecart à la taille moyenne + 1)",x_lab="Année",title_txt="",vecCol=c("#07307b","#0c5ef6","#c10909","#ea5d18"), minYear =min(aggTable.sp_s$YEAR)-1,maxYear = max(aggTable.sp_s$YEAR))
+
+        } # END if(print.fig |save.fig)
+      } else {  # END if(nrow(tS.seuil)>0)
+        aggTableTot.sp <- tS.seuil
+      }# END ELSE if(nrow(tS.seuil)>0)
+    } # END  if(species_level)
+  } # END for(s in site)
+  if(return.table) {
+    l.ret <- list()
+
+    if(community_level) l.ret[["community"]] <- aggTableTot
+    if(species_level) l.ret[["species"]] <- aggTableTot.sp
+  }
+
+}### END bodyCondition.sitereg
 
 
 
 returnRate.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,species=NULL,nom_sp=NULL,seuilAbondanceAnnee=30,seuilAbondanceAnneeSite=10,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet=TRUE)
 {
+
+    #Ici, on veut lire un document de référence différent selon résultats nationaux ou régionnaux:
+    region<-subset(d,NEW.ID_PROG %in% site)$BIOGEOREF[1]
+    if(region!="National"){
+      res<-returnRate.sitereg(d,site=site,community_level=community_level,species_level=species_level,species=species,nom_sp=nom_sp,seuilAbondanceAnnee=seuilAbondanceAnnee,seuilAbondanceAnneeSite=seuilAbondanceAnneeSite,fileLog=fileLog,print.fig=print.fig,save.fig=save.fig,add_title=add_title,facet=facet)
+      return(res)
+    }
     require(ggplot2)
 
     if(is.null(site)) {
@@ -1045,7 +1758,7 @@ returnRate.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,
                 d.ret.s <- subset(d.ret.s,BAGUE>10)
 
                 if(nrow(d.ret.s)>0) {
-                    if(add_title) title_txt <- paste("Station ",s,": toutes esp�ces confondues",sep="") else title_txt <- ""
+                    if(add_title) title_txt <- paste("Station ",s,": toutes espèces confondues",sep="") else title_txt <- ""
 
                     aggTableAll.tot$YEAR <- aggTableAll.tot$YEAR + 1
                     d.ret.s$YEAR <- d.ret.s$YEAR + 1
@@ -1059,7 +1772,7 @@ returnRate.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,
                     gg <- gg + geom_line(data=subset(d.ret.s, MIGRATION !=""), aes(y=RETURN),colour="#d71818",size=1.8,alpha=.5)
                     gg <- gg + geom_point(data=subset(d.ret.s, MIGRATION !=""), aes(y=RETURN),colour="#d71818",size=2)
                     gg <- gg + labs(title=title_txt,
-                                    x="Ann�e",y="Taux de retour")
+                                    x="Année",y="Taux de retour")
                     gg <- gg + theme(legend.position="none")
 
                     if(print.fig) print(gg)
@@ -1141,7 +1854,7 @@ returnRate.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,
                             gg <- gg + theme(legend.position="none")
 
                             gg <- gg + labs(title=title_txt,
-                                            x="Ann�e",y="Taux de retour de t-1 � t")
+                                            x="Année",y="Taux de retour de t-1 à t")
 
                             if(print.fig) print(gg)
 
@@ -1161,14 +1874,260 @@ returnRate.site <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,
     }#END for(s in site)
 }###END returnRate.site
 
+returnRate.sitereg <- function(d,site=NULL,community_level=TRUE,species_level=TRUE,species=NULL,nom_sp=NULL,seuilAbondanceAnnee=30,seuilAbondanceAnneeSite=10,fileLog="log.txt",print.fig=TRUE,save.fig=FALSE,add_title=TRUE,facet=TRUE)
+{
+  require(ggplot2)
 
+  if(is.null(site)) {
+    site <- sort(unique(d$NEW.ID_PROG))
+    region <- NULL
+  } else {
+    d <- subset(d,NEW.ID_PROG %in% site)
+    region <- as.character(unique(d$BIOGEOREF))
+  }
+
+  if(!is.null(region)) d <- subset(d,BIOGEOREF == region)
+
+
+  vecReg <- unique(d$BIOGEOREF)
+  vecReg <- vecReg[vecReg!="Altitude_sup_1200m"]
+  for(r in vecReg)
+  {
+
+    d.a0 <- unique(subset(d,AGE_first=="AD" & BIOGEOREF==r,select=c("BAGUE","SP","NEW.ID_PROG","YEAR","MIGRATION")))
+    d.a2 <- unique(subset(d,AGE_first=="AD" & BIOGEOREF==r,select=c("BAGUE","NEW.ID_PROG","YEAR","MIGRATION")))
+    d.a2$YEAR <- d.a2$YEAR - 1
+    d.a2$RETURN <- TRUE
+    d.a <- merge(d.a0,d.a2, by=c("BAGUE","NEW.ID_PROG","YEAR","MIGRATION"),all.x=TRUE)
+    d.a$RETURN[is.na(d.a$RETURN)]<- FALSE
+
+    d.j0 <- unique(subset(d,AGE_first=="JUV",select=c("BAGUE","SP","NEW.ID_PROG","YEAR","MIGRATION")))
+    d.j2 <- unique(subset(d,AGE_first=="AD",select=c("BAGUE","NEW.ID_PROG","YEAR","MIGRATION")))
+    d.j2$YEAR <- d.j2$YEAR - 1
+    d.j2$RETURN <- TRUE
+    d.j <- merge(d.j0,d.j2, by=c("BAGUE","NEW.ID_PROG","YEAR","MIGRATION"),all.x=TRUE)
+    d.j$RETURN[is.na(d.j$RETURN)]<- FALSE
+
+
+    if(community_level) {
+      aggTable <-  read.csv2("data_France/returnRate_all_France_reg.csv")
+      aggTable$gr <- paste("FRANCE,",aggTable$AGE_first)
+      aggTable$SITE <- "FRANCE"
+      aggTable <- subset(aggTable,BIOGEOREF == r)
+
+
+
+
+      d.ret <- NULL
+
+
+      if(nrow(d.a)>0) {
+        d.ret.a <- aggregate(RETURN ~ NEW.ID_PROG + YEAR + MIGRATION, data = d.a, FUN = returnRateAssessment)
+        d.compt.a <- aggregate(BAGUE ~ NEW.ID_PROG + YEAR + MIGRATION , data = d.a, FUN = length)
+        d.ret.a <- merge(d.ret.a,d.compt.a,by=c("NEW.ID_PROG","YEAR","MIGRATION"))
+        d.ret.a$AGE_first <- "AD"
+
+        d.ret <- rbind(d.ret,
+                       d.ret.a)
+
+      }
+
+      if(nrow(d.j)>0) {
+        d.ret.j <- aggregate(RETURN ~ NEW.ID_PROG + YEAR + MIGRATION , data = d.j, FUN = returnRateAssessment)
+        d.compt.j <- aggregate(BAGUE ~ NEW.ID_PROG + YEAR + MIGRATION, data = d.j, FUN = length)
+        d.ret.j <- merge(d.ret.j,d.compt.j,by=c("NEW.ID_PROG","YEAR","MIGRATION"))
+        d.ret.j$AGE_first <- "JUV"
+
+
+        d.ret <- rbind(d.ret,
+                       d.ret.j)
+
+      }
+
+
+
+
+
+      if (r == vecReg[1]) aggTableAll.tot <- aggTable else aggTableAll.tot <- rbind(aggTableAll.tot,aggTable)
+      if (r == vecReg[1]) d.ret.tot <- d.ret else d.ret.tot <- rbind(d.ret.tot,d.ret)
+    }#END if(community_level)
+    if(species_level) {
+
+
+      aggTable.sp <- read.csv2("data_France/returnRate_sp_France_reg.csv")
+      aggTable.sp$gr <- paste("FRANCE,",aggTable.sp$AGE_first)
+      aggTable.sp$SITE <- "FRANCE"
+      aggTable.sp <- subset(aggTable.sp,BIOGEOREF == r)
+
+
+      dsp.ret.a <- aggregate(RETURN ~ NEW.ID_PROG + YEAR + SP + MIGRATION, data = d.a, FUN = returnRateAssessment)
+      dsp.compt.a <- aggregate(BAGUE ~ NEW.ID_PROG + YEAR + SP + MIGRATION , data = d.a, FUN = length)
+      dsp.ret.a <- merge(dsp.ret.a,dsp.compt.a,by=c("NEW.ID_PROG","YEAR","SP","MIGRATION"))
+
+      dsp.ret.j <- aggregate(RETURN ~ NEW.ID_PROG + YEAR + SP + MIGRATION , data = d.j, FUN = returnRateAssessment)
+      dsp.compt.j <- aggregate(BAGUE ~ NEW.ID_PROG + YEAR + SP + MIGRATION, data = d.j, FUN = length)
+      dsp.ret.j <- merge(dsp.ret.j,dsp.compt.j,by=c("NEW.ID_PROG","YEAR","SP","MIGRATION"))
+
+
+      dsp.ret.a$AGE_first <- "AD"
+      dsp.ret.j$AGE_first <- "JUV"
+
+
+      dsp.ret <- rbind(dsp.ret.a,
+                       dsp.ret.j)
+
+      dsp.medcompt <- aggregate(BAGUE ~ NEW.ID_PROG + SP + YEAR , data = dsp.ret, FUN = sum)
+      dsp.medcompt <- aggregate(BAGUE ~ NEW.ID_PROG + SP , data = dsp.medcompt, FUN = median)
+
+      dsp.medSeuil <- subset(dsp.medcompt,BAGUE>10)
+
+      dsp.ret <- dsp.ret[paste(dsp.ret$NEW.ID_PROG,dsp.ret$SP) %in% paste(dsp.medSeuil$NEW.ID_PROG,dsp.medSeuil$SP), ]
+
+      if(r == vecReg[1]) aggTableSP.tot <- aggTable.sp else aggTableSP.tot <- rbind(aggTableSP.tot,aggTable.sp)
+
+      if(r == vecReg[1]) dsp_ret.tot <- dsp.ret else   dsp_ret.tot <- rbind(dsp_ret.tot,dsp.ret)
+
+    }
+
+  }
+
+
+  for(s in site) {
+
+    if(community_level) {
+      d.ret.s <- subset(d.ret.tot,NEW.ID_PROG==s)
+      if(length(unique(d.ret.s$YEAR))>1) {
+        r <- d$BIOGEOREF[1]
+
+        d.ret.s <- subset(d.ret.s,YEAR<max(d.ret.s$YEAR))
+        minYear <- max(min(d.ret.s$YEAR)-1,min(d$YEAR))
+        maxYear <- min(max(d.ret.s$YEAR)+1,max(d$YEAR))
+
+        d.ret.s <- subset(d.ret.s,BAGUE>10)
+
+        if(nrow(d.ret.s)>0) {
+          if(add_title) title_txt <- paste("Station ",s,": toutes espèces confondues",sep="") else title_txt <- ""
+
+          aggTableAll.tot$YEAR <- aggTableAll.tot$YEAR + 1
+          d.ret.s$YEAR <- d.ret.s$YEAR + 1
+          gg <- ggplot(subset(aggTableAll.tot,BIOGEOREF==r & MIGRATION !=""),aes(x=YEAR,y=med,colour=MIGRATION,fill=MIGRATION))+ facet_grid(AGE_first~MIGRATION,scales="free_y")
+          gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.4,colour = NA)
+          gg <- gg + geom_line(size=1.5,alpha=.8)
+          gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
+          gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6"))
+          gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6"),guide=FALSE)
+          gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())
+          gg <- gg + geom_line(data=subset(d.ret.s, MIGRATION !=""), aes(y=RETURN),colour="#d71818",size=1.8,alpha=.5)
+          gg <- gg + geom_point(data=subset(d.ret.s, MIGRATION !=""), aes(y=RETURN),colour="#d71818",size=2)
+          gg <- gg + labs(title=title_txt,
+                          x="Année",y="Taux de retour")
+          gg <- gg + theme(legend.position="none")
+
+          if(print.fig) print(gg)
+
+          if(save.fig) {
+            ggfile <- paste("output/",s,"/ReturnRate_Site_",s,".png",sep="")
+            catlog(c("Check",ggfile,":"),fileLog)
+            ggsave(ggfile,gg,width=7, height=6)
+            catlog(c("\n"),fileLog)
+          }
+
+
+        }#END if(nrow(d.ret.s)>0)
+
+      }# END if(length(unique(d.ret.s$YEAR))>1)
+    }# END if(community_level)
+
+    if(species_level) {
+
+      if(!is.null(nom_sp)) t_nom_sp <- data.frame(species=species,nom_sp=nom_sp)
+      dsp.ret.s <- subset(dsp_ret.tot,NEW.ID_PROG==s)
+      if(length(unique(dsp.ret.s$YEAR))>1) {
+        if(nrow(dsp.ret.s)>0) {
+
+          dsp.ret.s <- subset(dsp.ret.s,YEAR<max(dsp.ret.s$YEAR))
+
+          minYear <- max(min(dsp.ret.s$YEAR)-1,min(d$YEAR))
+          maxYear <- min(max(dsp.ret.s$YEAR)+1,max(d$YEAR))
+
+
+          compt <- aggregate(BAGUE ~ SP + YEAR, data=dsp.ret.s, sum)
+          compt <- aggregate(BAGUE ~ SP, data=compt, median)
+
+
+
+          if(is.null(species))   spEligible <- compt$SP[compt$BAGUE>10] else spEligible <- intersect(species,unique(compt$SP))
+          if(length(spEligible)>0) {
+            dsp.ret.s <- subset(dsp.ret.s,SP %in% spEligible)
+
+            for(sp in spEligible) {
+
+              if(add_title) {
+                if(!is.null(nom_sp)) sp_fig <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else sp_fig <- sp
+                title_txt <- paste(sp_fig,": Station ",ss,sep="")
+              } else {
+                title_txt <- ""
+              }
+
+              aggTableTot.sp.sp <- subset(aggTableSP.tot,BIOGEOREF==r & SP == sp)
+              dsp.ret.sp <- subset(dsp.ret.s,SP == sp)
+
+              if(facet){
+                if(nrow(aggTableTot.sp.sp)>0) {
+                  aggTableTot.sp.sp$YEAR <- aggTableTot.sp.sp$YEAR + 1
+                  if(!is.null(nom_sp)) aggTableTot.sp.sp$facet <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else aggTableTot.sp.sp$facet <- sp
+                } else {
+                  if(!is.null(nom_sp)) dsp.ret.sp$facet <- as.character(t_nom_sp$nom_sp[t_nom_sp$species == sp]) else dsp.ret.sp$facet <- sp
+                }
+
+              } #END if(facet)
+
+              dsp.ret.sp$YEAR <-  dsp.ret.sp$YEAR + 1
+              if(nrow(aggTableTot.sp.sp)>0) {
+                gg <- ggplot( aggTableTot.sp.sp ,aes(x=YEAR,y=med,colour=MIGRATION,fill=MIGRATION))
+                gg <- gg + geom_ribbon(aes(ymin=CIinf,ymax=CIsup),alpha=.4,colour = NA)
+                gg <- gg + geom_line(size=1.5,alpha=.8)
+                gg <- gg + geom_line(aes(y=CIquart_inf),alpha=.5,size=.8)+geom_line(aes(y=CIquart_sup),alpha=.5,size=.8)
+                gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6"))
+                gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6"),guide=FALSE)
+              } else {
+                gg <- ggplot( dsp.ret.sp ,aes(x=YEAR,y=RETURN))
+
+              }
+              if(facet) gg <- gg + facet_grid(AGE_first~facet,scales="free_y") else gg <- gg + facet_grid(AGE_first~.,scales="free_y")
+
+              gg <- gg + coord_cartesian(xlim=c(minYear,maxYear)) + scale_x_continuous(breaks=pretty_breaks())#trunc(seq(minYear,maxYear,length.out= min(length(minYear:maxYear),8))))
+              gg <- gg + geom_line(data=dsp.ret.sp, aes(y=RETURN),colour="#d71818",size=1.8,alpha=.5)
+              gg <- gg + geom_point(data=dsp.ret.sp, aes(y=RETURN),colour="#d71818",size=2)
+              gg <- gg + theme(legend.position="none")
+
+              gg <- gg + labs(title=title_txt,
+                              x="Année",y="Taux de retour de t-1 à t")
+
+              if(print.fig) print(gg)
+
+              if(save.fig) {
+                ggfile <- paste("output/",s,"/ReturnRate_sp_Site_",s,".png",sep="")
+                catlog(c("Check",ggfile,":"),fileLog)
+                ggsave(ggfile,gg,width=7, height=7)
+                catlog(c("\n"),fileLog)
+              }
+
+
+            }#END  for(sp in spEligible)
+          }#END  if(length(spEligible)>0)
+        }#END  if(nrow(dsp.ret.s)>0)
+      }#END if(length(unique(dsp.ret.s$YEAR))>1)
+    }#END  if(species_level)
+  }#END for(s in site)
+}###END returnRate.sitereg
 
 
 
 plot_local_sp <- function(dgg,species=NULL,nom_sp=NULL,print.fig=TRUE,save.fig=FALSE,add_title=FALSE,
                           facet_sp=TRUE,facet_group="AGE_first",
-                          y_lab="Condition corporelle: Masse/(Ecart � la taille moyenne + 1)",
-                          x_lab="Ann�e",title_txt="",vecCol=c("#07307b","#0c5ef6","#c10909","#ea5d18"),
+                          y_lab="Condition corporelle: Masse/(Ecart à la taille moyenne + 1)",
+                          x_lab="Année",title_txt="",vecCol=c("#07307b","#0c5ef6","#c10909","#ea5d18"),
                           minYear = NULL, maxYear = NULL) {
 
 
@@ -1267,8 +2226,8 @@ pheno.all <- function(d,habitat=NULL,fileLog="log.txt") # !!!!!!  NON STABILISE 
     gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6"))
     gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6"),guide=FALSE)
 
-    gg <- gg + labs(list(title=paste("Variation de la date de la premiere capture de JUV\ntoutes esp�ces confondue",sep=""),
-                         x="Ann�e",y="Jour Julien"))
+    gg <- gg + labs(list(title=paste("Variation de la date de la première capture de JUV\ntoutes espèces confondues",sep=""),
+                         x="Année",y="Jour Julien"))
 
 
 
@@ -1333,7 +2292,7 @@ pheno.all <- function(d,habitat=NULL,fileLog="log.txt") # !!!!!!  NON STABILISE 
 
 
     gg <- ggplot(tPente,aes(x=pente))+geom_histogram() +  facet_grid(MIGRATION~HABITAT) + geom_vline(xintercept = pente,colour="red",size=2,alpha=.5)
-    gg <- gg + labs(list(title=paste("Pente de correction de la date de premi�re capture de jeune",sep=""),
+    gg <- gg + labs(list(title=paste("Pente de correction de la date de première capture de jeunes",sep=""),
                          y="",x="Pente de la proportion de jeunes au court de la saison de baguage (par site et annee)"))
     ggfile <- paste("output/France/PenteDeCorrection_all.png",sep="")
     catlog(c("Check",ggfile,":"),fileLog)
@@ -1361,8 +2320,8 @@ pheno.all <- function(d,habitat=NULL,fileLog="log.txt") # !!!!!!  NON STABILISE 
     gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6"))
     gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6"),guide=FALSE)
 
-    gg <- gg + labs(list(title=paste("Variation de la date corrig� de la premiere capture de JUV\ntoutes esp�ces confondue",sep=""),
-                         x="Ann�e",y="Jour Julien"))
+    gg <- gg + labs(list(title=paste("Variation de la date corrigée de la premiere capture de JUV\ntoutes espèces confondues",sep=""),
+                         x="Année",y="Jour Julien"))
 
     gg
 
@@ -1394,8 +2353,8 @@ pheno.all <- function(d,habitat=NULL,fileLog="log.txt") # !!!!!!  NON STABILISE 
     gg <- gg + scale_colour_manual(values =c("#07307b","#0c5ef6"))
     gg <- gg + scale_fill_manual(values =c("#07307b","#0c5ef6"),guide=FALSE)
 
-    gg <- gg + labs(list(title=paste("Variation de la date de la premiere capture de JUV\ntoutes esp�ces confondue",sep=""),
-                         x="Ann�e",y="Jour Julien"))
+    gg <- gg + labs(list(title=paste("Variation de la date de la première capture de JUV\ntoutes espèces confondues",sep=""),
+                         x="Année",y="Jour Julien"))
 
     gg
 
@@ -1426,3 +2385,113 @@ expPDF <- function(d,site=NULL,system="linux",fileLog="log.txt") {
 
     }
 }
+
+
+
+
+
+
+
+
+#### ------------------------- in progress
+
+# non opérationnel !!! 
+carteTauxAnnuel <- function(d,site=NULL,AD=TRUE,year=NULL,fileLog=NULL,print.fig=TRUE,save.fig=TRUE,add_title=TRUE) {
+  
+  require(rgdal)
+  require(ggmap)
+  require(maptools)
+  library(sf)
+  require(maps)
+  
+  
+  if(!is.null(year)){
+    d<-subset(d,YEAR==year)
+  }
+  
+  france <- map_data("france")
+  if(is.null(site)) site <- sort(as.character(unique(d$NEW.ID_PROG)))
+  if(save.fig) checkRepertories(site)
+  
+  coordAll <- aggregate(cbind(d$LON,d$LAT) ~ d$NEW.ID_PROG,data=d,mean)
+  colnames(coordAll)[2:3] <- c("LON","LAT")
+  ID_exclu <- as.character(coordAll$NEW.ID_PROG[which(coordAll$LAT<40)])
+  coordAll <- subset(coordAll,LAT>40)
+  
+  
+  anneeAll <- unique(subset(d,select=c("NEW.ID_PROG","FIRST.YEAR","LAST.YEAR")))
+  typeAll <-  unique(subset(d,select=c("NEW.ID_PROG","HABITAT")))
+  
+  #  coordAll2 <- merge(coordAll2,typeAll,by="NEW.ID_PROG",all=TRUE)
+  #  coordAll2 <- merge(coordAll2,anneeAll,by="NEW.ID_PROG",all=TRUE)
+  colnames(coordAll)[1] <- "NEW.ID_PROG"
+  coordAll2 <- merge(coordAll,typeAll,by="NEW.ID_PROG",all=TRUE)
+  coordAll2 <- merge(coordAll2,anneeAll,by="NEW.ID_PROG",all=TRUE)
+  
+  
+  
+  coordAllh <- coordAll2
+  nbs <- length(unique(coordAllh$NEW.ID_PROG))-1
+  #dcoord.s <- subset(coordAll2,NEW.ID_PROG == ss)
+  
+  coordAllh$TAUX<-0
+  
+  # for(s in unique(d$NEW.ID_PROG)){
+  #   prop <- 0
+  #   for (y in unique(subset(d,NEW.ID_PROG==s)$YEAR)){
+  #     prop<- prop + nrow(subset(d,YEAR==y & AGE_stage == "JUV" & ESPECE%in%especes_ageables$ESPECE & NEW.ID_PROG ==s))/(nrow(subset(d,YEAR==y & AGE_stage == "AD" & ESPECE%in%especes_ageables$ESPECE & NEW.ID_PROG ==s))+nrow(subset(d,YEAR==y & AGE_stage == "JUV" & ESPECE%in%especes_ageables$ESPECE & NEW.ID_PROG ==s)))
+  #   }
+  #   coordAllh[coordAllh$NEW.ID_PROG==s,]$TAUX<-prop/length(unique(subset(d,NEW.ID_PROG==s)$YEAR))
+  # }
+  
+  table_prop <- returnRate.all(d)
+  if(AD){
+    type <- "AD"
+  }  else{
+    type <- "JUV"
+  }
+  
+  for(s in unique(d$NEW.ID_PROG)){
+    coordAllh[coordAllh$NEW.ID_PROG==s,]$TAUX<- mean(subset(table_prop,NEW.ID_PROG==s & AGE_first==type)$RETURN)
+  }
+  
+  #browser()
+  
+  world1 <- sf::st_as_sf(map('world', plot = FALSE, fill = TRUE))
+  france <- sf::st_as_sf(map('france', plot = FALSE, fill = TRUE))
+  
+  
+  mytheme <- theme(plot.title = element_text(face = "bold",size = rel(1.2), hjust = 0.5),
+                   panel.background = element_rect(colour = NA),
+                   plot.background = element_rect(colour = NA),
+                   axis.title = element_text(face = "bold",size = rel(1)),
+                   axis.title.y = element_text(angle=90,vjust =2),
+                   axis.title.x = element_text(vjust = -0.2),
+                   legend.position=NULL)
+  
+  
+  if(add_title) title_txt <- paste0("Carte du taux de retour annuel des stations pour les ", type) else title_txt <- ""
+  gg <- ggplot()
+  gg <- gg + geom_sf(data = world1,fill="white", colour="#7f7f7f", size=0.2)+ geom_sf(data = france,fill="white", colour="#7f7f7f", size=0.5)
+  gg <- gg + coord_sf(xlim=c(-5,9),ylim=c(41.5,52))
+  
+  gg <- gg + geom_point(data = coordAll2,aes(LON,LAT),shape=1,size=1,colour="black")
+  gg <- gg + geom_point(data = coordAllh, aes(LON,LAT,colour=TAUX),size=2,shape=19)
+  gg <- gg + labs(x="",y="",title=title_txt)
+  gg <- gg + scale_colour_gradient2(low = "#b2182b",mid="#92c5de",high = "#053061",name="Taux de retour inter-annuel moyen du site",labels=percent)
+  
+  
+  if(save.fig) {
+    g <- gg
+    ggfile <- paste("output/France/carte_retour_annuel.png",sep="")
+    catlog(c("Check",ggfile,":"),fileLog)
+    ggsave(ggfile,g)#,height = 10.5,width = 13)
+    catlog(c("\n"),fileLog)
+  }
+  
+  if(print.fig)
+    print(gg)
+  
+}
+
+
