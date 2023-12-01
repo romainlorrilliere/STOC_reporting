@@ -1,11 +1,8 @@
-
-### run.rmd()
-
-
+## run.rmd()
 ## source("functions/fun_generic_latin1.r")
 source("functions/fun_indicateurs_local_latin1.r")
 
-vecPackage=c("data.table","devtools","dplyr","ggplot2","ggpubr","lubridate","reshape2","knitr","kableExtra","pander","stringr")
+vecPackage <- c("data.table","devtools","dplyr","ggplot2","ggpubr","lubridate","reshape2","knitr","kableExtra","pander","stringr")
 
 ip <- installed.packages()[,1]
 
@@ -56,3 +53,13 @@ run.rmd <- function(file.rmd="functions/rmd_stoc_reporting_utf8.rmd",rep.out="ou
 
 
 
+
+file.rmd # nom du fichier rmd que tu veux lancer
+file.out # nom du fichier html ou pdf que tu veux produire
+# si boucle sp par exemple file.out <- paste0(sp".html")
+
+rep.out # repertoire de sortie
+format # "html" ou "pdf"
+parametres # list des parametres à importer dans le rmd par exemple le nom de l'espèce, son code ...
+
+rmarkdown::render(file.rmd,output_file=file.out,output_dir=rep.out,output_format = format,params = parametres)
